@@ -79,7 +79,7 @@ const HomePage = () => {
           <span>Nuovo impegno</span>
         </Button>
         <Button 
-          variant="outline"
+          //variant="outline"
           className="flex items-center justify-center gap-2 h-auto py-3"
           onClick={() => setIsCounterFormOpen(true)}
         >
