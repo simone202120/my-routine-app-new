@@ -1,6 +1,6 @@
 // pages/CalendarPage.tsx
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from "../components/ui/button";
@@ -12,23 +12,19 @@ const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Ottiene tutti i giorni del mese corrente
   const monthDays = eachDayOfInterval({
     start: startOfMonth(currentDate),
     end: endOfMonth(currentDate)
   });
 
-  // Gestisce il cambio mese
   const handlePreviousMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
-  // Filtra i task per la data selezionata
   const selectedDateTasks = tasks.filter(task => {
     if (task.type === 'routine') return true;
     return task.date === format(selectedDate, 'yyyy-MM-dd');
   });
 
-  // Verifica se un giorno ha dei task
   const hasTasksOnDate = (date: Date) => {
     return tasks.some(task => {
       if (task.type === 'routine') return true;
@@ -37,17 +33,18 @@ const CalendarPage = () => {
   };
 
   return (
-    <div className="pb-20 pt-16">
+    <div className="space-y-6">
       {/* Header del calendario */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 capitalize">
             {format(currentDate, 'MMMM yyyy', { locale: it })}
           </h1>
           <div className="flex space-x-2">
             <Button
               variant="outline"
               size="icon"
+              className="rounded-full"
               onClick={handlePreviousMonth}
             >
               <ChevronLeft className="h-5 w-5" />
@@ -55,6 +52,7 @@ const CalendarPage = () => {
             <Button
               variant="outline"
               size="icon"
+              className="rounded-full"
               onClick={handleNextMonth}
             >
               <ChevronRight className="h-5 w-5" />
@@ -62,44 +60,49 @@ const CalendarPage = () => {
           </div>
         </div>
 
-        {/* Griglia dei giorni della settimana */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
+        {/* Giorni della settimana */}
+        <div className="grid grid-cols-7 mb-2">
           {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
             <div
               key={day}
-              className="text-center text-sm font-medium text-gray-500"
+              className="text-center text-sm font-medium text-gray-500 py-2"
             >
               {day}
             </div>
           ))}
         </div>
 
-        {/* Griglia dei giorni del mese */}
+        {/* Griglia dei giorni */}
         <div className="grid grid-cols-7 gap-1">
           {monthDays.map(day => {
             const isSelected = isSameDay(day, selectedDate);
             const isCurrentMonth = isSameMonth(day, currentDate);
             const hasEvents = hasTasksOnDate(day);
+            const isDayToday = isToday(day);
 
             return (
               <button
                 key={day.toString()}
                 onClick={() => setSelectedDate(day)}
                 className={`
-                  p-2 h-14 text-sm rounded-lg
-                  ${isSelected ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}
+                  aspect-square p-1 relative flex flex-col items-center justify-center
+                  rounded-lg transition-colors
                   ${!isCurrentMonth && 'text-gray-400'}
-                  relative
+                  ${isSelected ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-50'}
+                  ${isDayToday && !isSelected && 'border-2 border-primary-500'}
                 `}
               >
                 <span className={`
-                  ${isSelected ? 'font-bold' : ''}
-                  ${hasEvents ? 'text-primary-600' : ''}
+                  text-sm font-medium
+                  ${isSelected && 'font-bold'}
                 `}>
                   {format(day, 'd')}
                 </span>
                 {hasEvents && (
-                  <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary-500 rounded-full" />
+                  <span className={`
+                    w-1.5 h-1.5 rounded-full mt-1
+                    ${isSelected ? 'bg-primary-600' : 'bg-primary-400'}
+                  `} />
                 )}
               </button>
             );
@@ -107,9 +110,9 @@ const CalendarPage = () => {
         </div>
       </div>
 
-      {/* Lista degli impegni per il giorno selezionato */}
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold mb-4">
+      {/* Lista degli impegni */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Impegni del {format(selectedDate, 'd MMMM yyyy', { locale: it })}
         </h2>
         <div className="space-y-3">
@@ -121,9 +124,9 @@ const CalendarPage = () => {
             />
           ))}
           {selectedDateTasks.length === 0 && (
-            <p className="text-gray-500 text-center py-4">
-              Nessun impegno per questa data
-            </p>
+            <div className="text-center py-8">
+              <p className="text-gray-500">Nessun impegno per questa data</p>
+            </div>
           )}
         </div>
       </div>

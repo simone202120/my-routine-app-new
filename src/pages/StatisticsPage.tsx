@@ -2,16 +2,17 @@
 import React, { useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line
+  PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { format, subDays, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import { CheckCircle2, Clock, Target } from 'lucide-react';
 
 const StatisticsPage = () => {
   const { tasks, counters } = useApp();
 
-  // Calcola le statistiche dei task
+  // Calcolo statistiche task
   const taskStats = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter(task => task.isCompleted).length;
@@ -21,123 +22,132 @@ const StatisticsPage = () => {
     return {
       total,
       completed,
-      completion: total ? (completed / total * 100).toFixed(1) : 0,
+      completion: total ? Math.round((completed / total) * 100) : 0,
       routine,
       oneTime
     };
   }, [tasks]);
 
-  // Prepara i dati per il grafico a torta dei tipi di task
+  // Dati per il grafico a torta
   const taskTypeData = [
     { name: 'Routine', value: taskStats.routine },
     { name: 'Una tantum', value: taskStats.oneTime }
   ];
 
-  // Prepara i dati per il grafico a barre dei contatori
-  const counterData = useMemo(() => {
-    return counters.map(counter => ({
-      name: counter.name,
-      value: counter.currentValue
-    }));
-  }, [counters]);
-
-  // Colori per i grafici
   const COLORS = ['#8b5cf6', '#6366f1', '#ec4899', '#14b8a6'];
 
   return (
-    <div className="pb-20 pt-16">
-      {/* Riepilogo generale */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4">Riepilogo Impegni</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <p className="text-gray-600">Totale Impegni</p>
-            <p className="text-2xl font-bold">{taskStats.total}</p>
+    <div className="space-y-6">
+      {/* Card statistiche generali */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Impegni Totali</p>
+              <p className="text-2xl font-bold mt-1">{taskStats.total}</p>
+            </div>
+            <Target className="h-8 w-8 text-primary-500" />
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <p className="text-gray-600">Completati</p>
-            <p className="text-2xl font-bold text-green-600">{taskStats.completed}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Completati</p>
+              <p className="text-2xl font-bold mt-1">{taskStats.completed}</p>
+            </div>
+            <CheckCircle2 className="h-8 w-8 text-green-500" />
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm col-span-2">
-            <p className="text-gray-600">Tasso di Completamento</p>
-            <p className="text-2xl font-bold text-primary-600">{taskStats.completion}%</p>
+        </div>
+        <div className="col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Tasso di Completamento</p>
+              <p className="text-2xl font-bold mt-1">{taskStats.completion}%</p>
+            </div>
+            <Clock className="h-8 w-8 text-blue-500" />
+          </div>
+          {/* Barra di progresso */}
+          <div className="mt-3 h-2 bg-gray-100 rounded-full">
+            <div 
+              className="h-full bg-primary-500 rounded-full"
+              style={{ width: `${taskStats.completion}%` }}
+            />
           </div>
         </div>
       </div>
 
       {/* Grafico distribuzione tipi di task */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4">Distribuzione Tipi di Impegni</h2>
-        <div className="bg-white p-4 rounded-lg shadow-sm" style={{ height: '300px' }}>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h2 className="text-lg font-semibold mb-4">Distribuzione Impegni</h2>
+        <div style={{ height: '300px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={taskTypeData}
                 cx="50%"
                 cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                innerRadius={60}
                 outerRadius={80}
                 fill="#8884d8"
+                paddingAngle={5}
                 dataKey="value"
+                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
               >
                 {taskTypeData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip />
+              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Grafico contatori */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4">Stato dei Contatori</h2>
-        <div className="bg-white p-4 rounded-lg shadow-sm" style={{ height: '300px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={counterData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#8b5cf6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Sezione contatori giornalieri */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4">Contatori Giornalieri</h2>
-        <div className="space-y-4">
-          {counters
-            .filter(counter => counter.type === 'daily')
-            .map(counter => (
-              <div key={counter.id} className="bg-white p-4 rounded-lg shadow-sm">
-                <div className="flex justify-between items-center">
+      {/* Contatori */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Contatori Giornalieri</h2>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          {counters.filter(c => c.type === 'daily').map(counter => (
+            <div key={counter.id} className="py-3 first:pt-0 last:pb-0 border-b last:border-0">
+              <div className="flex justify-between items-center">
+                <div>
                   <p className="font-medium">{counter.name}</p>
-                  <p className="text-xl font-bold">{counter.currentValue}</p>
+                  <p className="text-sm text-gray-500">Oggi</p>
+                </div>
+                <div className="text-2xl font-bold text-primary-600">
+                  {counter.currentValue}
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
+          {counters.filter(c => c.type === 'daily').length === 0 && (
+            <p className="text-center text-gray-500 py-4">
+              Nessun contatore giornaliero
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Sezione contatori totali */}
-      <div>
-        <h2 className="text-xl font-bold mb-4">Contatori Totali</h2>
-        <div className="space-y-4">
-          {counters
-            .filter(counter => counter.type === 'total')
-            .map(counter => (
-              <div key={counter.id} className="bg-white p-4 rounded-lg shadow-sm">
-                <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Contatori Totali</h2>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          {counters.filter(c => c.type === 'total').map(counter => (
+            <div key={counter.id} className="py-3 first:pt-0 last:pb-0 border-b last:border-0">
+              <div className="flex justify-between items-center">
+                <div>
                   <p className="font-medium">{counter.name}</p>
-                  <p className="text-xl font-bold">{counter.currentValue}</p>
+                  <p className="text-sm text-gray-500">Totale</p>
+                </div>
+                <div className="text-2xl font-bold text-primary-600">
+                  {counter.currentValue}
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
+          {counters.filter(c => c.type === 'total').length === 0 && (
+            <p className="text-center text-gray-500 py-4">
+              Nessun contatore totale
+            </p>
+          )}
         </div>
       </div>
     </div>
