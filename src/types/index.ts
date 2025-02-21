@@ -27,3 +27,14 @@ export interface CounterEntry {
   date: string;
   value: number;
 }
+// types/index.ts
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  type: TaskType;
+  date?: string;
+  time?: string;
+  weekdays?: string[]; // Aggiungiamo questa proprietà
+  isCompleted: boolean;
+}

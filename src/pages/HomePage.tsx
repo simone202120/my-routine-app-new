@@ -25,8 +25,14 @@ const HomePage = () => {
   const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
 
   const todayTasks = tasks.filter(task => {
-    if (task.type === 'routine') return true;
-    return task.date === format(new Date(), 'yyyy-MM-dd');
+    if (task.type === 'oneTime') {
+      return task.date === format(new Date(), 'yyyy-MM-dd');
+    }
+    if (task.type === 'routine') {
+      const today = format(new Date(), 'eee').toLowerCase(); // 'mon', 'tue', ecc.
+      return task.weekdays?.includes(today) ?? false;
+    }
+    return false;
   });
 
   const completedTodayTasks = todayTasks.filter(task => task.isCompleted);

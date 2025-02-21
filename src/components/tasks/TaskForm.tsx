@@ -4,6 +4,17 @@ import { X } from 'lucide-react';
 import { Button } from "../ui/button";
 import { TaskType } from '../../types';
 
+// Aggiungiamo i giorni della settimana
+const WEEKDAYS = [
+  { id: 'mon', label: 'Lunedì' },
+  { id: 'tue', label: 'Martedì' },
+  { id: 'wed', label: 'Mercoledì' },
+  { id: 'thu', label: 'Giovedì' },
+  { id: 'fri', label: 'Venerdì' },
+  { id: 'sat', label: 'Sabato' },
+  { id: 'sun', label: 'Domenica' }
+];
+
 interface TaskFormProps {
   onClose: () => void;
   onSubmit: (task: {
@@ -11,6 +22,7 @@ interface TaskFormProps {
     type: TaskType;
     time?: string;
     date?: string;
+    weekdays?: string[]; // Aggiungiamo i giorni della settimana
   }) => void;
 }
 
@@ -19,8 +31,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     title: '',
     type: 'routine' as TaskType,
     time: '',
-    date: ''
+    date: '',
+    weekdays: [] as string[]
   });
+
+  const toggleWeekday = (dayId: string) => {
+    setTaskData(prev => ({
+      ...prev,
+      weekdays: prev.weekdays.includes(dayId)
+        ? prev.weekdays.filter(d => d !== dayId)
+        : [...prev.weekdays, dayId]
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,25 +80,55 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
               value={taskData.type}
               onChange={(e) => setTaskData({
                 ...taskData, 
-                type: e.target.value as TaskType
+                type: e.target.value as TaskType,
+                weekdays: [] // Reset weekdays when changing type
               })}
             >
               <option value="routine">Routine</option>
               <option value="oneTime">Una tantum</option>
             </select>
           </div>
+          
           {taskData.type === 'routine' ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Orario
-              </label>
-              <input
-                type="time"
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                value={taskData.time}
-                onChange={(e) => setTaskData({...taskData, time: e.target.value})}
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Orario
+                </label>
+                <input
+                  type="time"
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  value={taskData.time}
+                  onChange={(e) => setTaskData({...taskData, time: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Giorni della settimana
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {WEEKDAYS.map(day => (
+                    <button
+                      key={day.id}
+                      type="button"
+                      className={`p-2 rounded-lg border text-sm transition-colors ${
+                        taskData.weekdays.includes(day.id)
+                          ? 'bg-primary-100 border-primary-500 text-primary-700'
+                          : 'border-gray-300 hover:bg-gray-50'
+                      }`}
+                      onClick={() => toggleWeekday(day.id)}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+                {taskData.weekdays.length === 0 && (
+                  <p className="text-sm text-red-500 mt-2">
+                    Seleziona almeno un giorno
+                  </p>
+                )}
+              </div>
+            </>
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -90,11 +142,15 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
               />
             </div>
           )}
+          
           <div className="flex justify-end space-x-3 pt-4">
             <Button variant="outline" type="button" onClick={onClose}>
               Annulla
             </Button>
-            <Button type="submit">
+            <Button 
+              type="submit"
+              disabled={taskData.type === 'routine' && taskData.weekdays.length === 0}
+            >
               Salva
             </Button>
           </div>
