@@ -8,6 +8,9 @@ export interface Task {
   type: TaskType;
   date?: string;
   time?: string;
+  weekdays?: string[];
+  startDate?: string;
+  endDate?: string;
   isCompleted: boolean;
 }
 

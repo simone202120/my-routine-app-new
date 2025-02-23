@@ -3,16 +3,24 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from "../ui/button";
 import { TaskType } from '../../types';
+import { addWeeks, addMonths, addYears, format } from 'date-fns';
 
-// Aggiungiamo i giorni della settimana
 const WEEKDAYS = [
-  { id: 'mon', label: 'Lunedì' },
-  { id: 'tue', label: 'Martedì' },
-  { id: 'wed', label: 'Mercoledì' },
-  { id: 'thu', label: 'Giovedì' },
-  { id: 'fri', label: 'Venerdì' },
-  { id: 'sat', label: 'Sabato' },
-  { id: 'sun', label: 'Domenica' }
+  { id: 'mon', label: 'Lun' },
+  { id: 'tue', label: 'Mar' },
+  { id: 'wed', label: 'Mer' },
+  { id: 'thu', label: 'Gio' },
+  { id: 'fri', label: 'Ven' },
+  { id: 'sat', label: 'Sab' },
+  { id: 'sun', label: 'Dom' }
+];
+
+const DURATION_TYPES = [
+  { id: 'custom', label: 'Personalizzata' },
+  { id: 'oneMonth', label: '1 Mese' },
+  { id: 'threeMonths', label: '3 Mesi' },
+  { id: 'sixMonths', label: '6 Mesi' },
+  { id: 'oneYear', label: '1 Anno' }
 ];
 
 interface TaskFormProps {
@@ -22,7 +30,9 @@ interface TaskFormProps {
     type: TaskType;
     time?: string;
     date?: string;
-    weekdays?: string[]; // Aggiungiamo i giorni della settimana
+    weekdays?: string[];
+    startDate?: string;
+    endDate?: string;
   }) => void;
 }
 
@@ -32,7 +42,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     type: 'routine' as TaskType,
     time: '',
     date: '',
-    weekdays: [] as string[]
+    weekdays: [] as string[],
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: '',
+    durationType: 'custom'
   });
 
   const toggleWeekday = (dayId: string) => {
@@ -44,117 +57,197 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     }));
   };
 
+  const handleDurationTypeChange = (durationType: string) => {
+    const startDate = new Date(taskData.startDate);
+    let endDate = startDate;
+
+    switch (durationType) {
+      case 'oneMonth':
+        endDate = addMonths(startDate, 1);
+        break;
+      case 'threeMonths':
+        endDate = addMonths(startDate, 3);
+        break;
+      case 'sixMonths':
+        endDate = addMonths(startDate, 6);
+        break;
+      case 'oneYear':
+        endDate = addYears(startDate, 1);
+        break;
+    }
+
+    setTaskData(prev => ({
+      ...prev,
+      durationType,
+      endDate: durationType === 'custom' ? prev.endDate : format(endDate, 'yyyy-MM-dd')
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(taskData);
+    onSubmit({
+      title: taskData.title,
+      type: taskData.type,
+      time: taskData.time,
+      date: taskData.type === 'oneTime' ? taskData.date : undefined,
+      weekdays: taskData.type === 'routine' ? taskData.weekdays : undefined,
+      startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
+      endDate: taskData.type === 'routine' ? taskData.endDate : undefined
+    });
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-t-xl sm:rounded-xl w-full max-w-lg">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 pb-24">
+      <div className="bg-white rounded-xl w-full max-w-md max-h-[75vh] flex flex-col relative top-[-3rem]">
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-bold text-gray-900">Nuovo Impegno</h2>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Titolo
-            </label>
-            <input
-              type="text"
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              value={taskData.title}
-              onChange={(e) => setTaskData({...taskData, title: e.target.value})}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo
-            </label>
-            <select
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              value={taskData.type}
-              onChange={(e) => setTaskData({
-                ...taskData, 
-                type: e.target.value as TaskType,
-                weekdays: [] // Reset weekdays when changing type
-              })}
-            >
-              <option value="routine">Routine</option>
-              <option value="oneTime">Una tantum</option>
-            </select>
-          </div>
-          
-          {taskData.type === 'routine' ? (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Orario
-                </label>
-                <input
-                  type="time"
-                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                  value={taskData.time}
-                  onChange={(e) => setTaskData({...taskData, time: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giorni della settimana
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {WEEKDAYS.map(day => (
-                    <button
-                      key={day.id}
-                      type="button"
-                      className={`p-2 rounded-lg border text-sm transition-colors ${
-                        taskData.weekdays.includes(day.id)
-                          ? 'bg-primary-100 border-primary-500 text-primary-700'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                      onClick={() => toggleWeekday(day.id)}
-                    >
-                      {day.label}
-                    </button>
-                  ))}
-                </div>
-                {taskData.weekdays.length === 0 && (
-                  <p className="text-sm text-red-500 mt-2">
-                    Seleziona almeno un giorno
-                  </p>
-                )}
-              </div>
-            </>
-          ) : (
+        
+        <div className="overflow-y-auto flex-1 p-4">
+          <form id="taskForm" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data
+                Titolo
               </label>
               <input
-                type="date"
+                type="text"
                 className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                value={taskData.date}
-                onChange={(e) => setTaskData({...taskData, date: e.target.value})}
+                value={taskData.title}
+                onChange={(e) => setTaskData({...taskData, title: e.target.value})}
+                required
               />
             </div>
-          )}
-          
-          <div className="flex justify-end space-x-3 pt-4">
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo
+              </label>
+              <select
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                value={taskData.type}
+                onChange={(e) => setTaskData({
+                  ...taskData, 
+                  type: e.target.value as TaskType,
+                  weekdays: []
+                })}
+              >
+                <option value="routine">Routine</option>
+                <option value="oneTime">Una tantum</option>
+              </select>
+            </div>
+
+            {taskData.type === 'routine' ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Orario
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    value={taskData.time}
+                    onChange={(e) => setTaskData({...taskData, time: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Giorni
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAYS.map(day => (
+                      <button
+                        key={day.id}
+                        type="button"
+                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                          taskData.weekdays.includes(day.id)
+                            ? 'bg-primary-100 border-primary-500 text-primary-700'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                        }`}
+                        onClick={() => toggleWeekday(day.id)}
+                      >
+                        {day.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Data Inizio
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    value={taskData.startDate}
+                    onChange={(e) => setTaskData({...taskData, startDate: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Durata
+                  </label>
+                  <select
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 mb-2"
+                    value={taskData.durationType}
+                    onChange={(e) => handleDurationTypeChange(e.target.value)}
+                  >
+                    {DURATION_TYPES.map(type => (
+                      <option key={type.id} value={type.id}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {taskData.durationType === 'custom' && (
+                    <input
+                      type="date"
+                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      value={taskData.endDate}
+                      min={taskData.startDate}
+                      onChange={(e) => setTaskData({...taskData, endDate: e.target.value})}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data
+                </label>
+                <input
+                  type="date"
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  value={taskData.date}
+                  onChange={(e) => setTaskData({...taskData, date: e.target.value})}
+                />
+              </div>
+            )}
+          </form>
+        </div>
+
+        <div className="border-t p-4 bg-gray-50 rounded-b-xl">
+          <div className="flex justify-end space-x-3">
             <Button variant="outline" type="button" onClick={onClose}>
               Annulla
             </Button>
             <Button 
               type="submit"
-              disabled={taskData.type === 'routine' && taskData.weekdays.length === 0}
+              form="taskForm"
+              disabled={
+                taskData.type === 'routine' && 
+                (taskData.weekdays.length === 0 || 
+                !taskData.startDate || 
+                (taskData.durationType === 'custom' && !taskData.endDate))
+              }
             >
               Salva
             </Button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
