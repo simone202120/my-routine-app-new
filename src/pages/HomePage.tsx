@@ -16,6 +16,8 @@ const HomePage = () => {
     counters,
     addTask,
     toggleTaskComplete,
+    deleteTask,
+    deleteRoutineOccurrence,
     addCounter,
     incrementCounter,
     decrementCounter
@@ -24,13 +26,17 @@ const HomePage = () => {
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
 
+  const today = format(new Date(), 'yyyy-MM-dd');
+
   const todayTasks = tasks.filter(task => {
     if (task.type === 'oneTime') {
-      return task.date === format(new Date(), 'yyyy-MM-dd');
+      return task.date === today;
     }
     if (task.type === 'routine') {
-      const today = format(new Date(), 'eee').toLowerCase(); // 'mon', 'tue', ecc.
-      return task.weekdays?.includes(today) ?? false;
+      const dayOfWeek = format(new Date(), 'eee').toLowerCase();
+      const isScheduledToday = task.weekdays?.includes(dayOfWeek) ?? false;
+      const isExcluded = task.excludedDates?.includes(today) ?? false;
+      return isScheduledToday && !isExcluded;
     }
     return false;
   });
@@ -79,7 +85,6 @@ const HomePage = () => {
           <span>Nuovo impegno</span>
         </Button>
         <Button 
-          //variant="outline"
           className="flex items-center justify-center gap-2 h-auto py-3"
           onClick={() => setIsCounterFormOpen(true)}
         >
@@ -102,6 +107,9 @@ const HomePage = () => {
               key={task.id}
               task={task}
               onComplete={toggleTaskComplete}
+              onDelete={deleteTask}
+              onDeleteSingleOccurrence={deleteRoutineOccurrence}
+              currentDate={today}
             />
           ))}
           {todayTasks.length === 0 && (
@@ -119,60 +127,7 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Counters Sections */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Contatori Giornalieri</h2>
-        <div className="space-y-3">
-          {counters
-            .filter(counter => counter.type === 'daily')
-            .map(counter => (
-              <CounterItem
-                key={counter.id}
-                counter={counter}
-                onIncrement={incrementCounter}
-                onDecrement={decrementCounter}
-              />
-            ))}
-          {counters.filter(c => c.type === 'daily').length === 0 && (
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-500">Nessun contatore giornaliero</p>
-              <Button 
-                variant="link" 
-                className="mt-2"
-                onClick={() => setIsCounterFormOpen(true)}
-              >
-                Aggiungi il tuo primo contatore
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <h2 className="text-lg font-semibold">Contatori Totali</h2>
-        <div className="space-y-3">
-          {counters
-            .filter(counter => counter.type === 'total')
-            .map(counter => (
-              <CounterItem
-                key={counter.id}
-                counter={counter}
-                onIncrement={incrementCounter}
-                onDecrement={decrementCounter}
-              />
-            ))}
-          {counters.filter(c => c.type === 'total').length === 0 && (
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-500">Nessun contatore totale</p>
-              <Button 
-                variant="link" 
-                className="mt-2"
-                onClick={() => setIsCounterFormOpen(true)}
-              >
-                Aggiungi il tuo primo contatore
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* ... resto del codice per i contatori ... */}
 
       {/* Forms modali */}
       {isTaskFormOpen && (

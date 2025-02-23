@@ -12,6 +12,8 @@ export interface Task {
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
+  frequency?: string;  // Aggiungiamo questa riga
+  excludedDates?: string[];  // Aggiungi questa riga
 }
 
 // Tipi per i contatori

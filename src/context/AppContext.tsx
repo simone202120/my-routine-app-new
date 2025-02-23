@@ -14,6 +14,7 @@ interface AppContextType {
   deleteCounter: (counterId: string) => void;
   resetDailyCounters: () => void;
   resetAllData: () => void;
+  deleteRoutineOccurrence: (taskId: string, date: string) => void;  // Aggiungi questa
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -98,6 +99,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTasks(prev => prev.filter(task => task.id !== taskId));
   }, []);
 
+  const deleteRoutineOccurrence = useCallback((taskId: string, date: string) => {
+    setTasks(prev => {
+      return prev.map(task => {
+        if (task.id === taskId && task.type === 'routine') {
+          // Qui potresti voler salvare le date delle occorrenze eliminate
+          // per non mostrarle più in futuro
+          return {
+            ...task,
+            excludedDates: [...(task.excludedDates || []), date]
+          };
+        }
+        return task;
+      });
+    });
+  }, []);
+
   const addCounter = useCallback((counterData: Omit<Counter, 'id' | 'currentValue'>) => {
     const newCounter: Counter = {
       id: Date.now().toString(),
@@ -151,7 +168,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteTask,
       deleteCounter,
       resetDailyCounters,
-      resetAllData
+      resetAllData,
+      deleteRoutineOccurrence
     }}>
       {children}
     </AppContext.Provider>

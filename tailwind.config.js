@@ -1,32 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./src/**/*.{js,jsx,ts,tsx}"],
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
         primary: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
+          50: '#f2f9f5',
+          100: '#e6f4eb',
+          200: '#d0eadc',
+          300: '#a8dbc0',
+          400: '#7ec89f',
+          500: '#5bb584',
+          600: '#429f6b',
+          700: '#358757',
+          800: '#2d6c47',
+          900: '#25563a',
         },
-      },
-      spacing: {
-        '18': '4.5rem',
-        '88': '22rem',
-      },
-      borderRadius: {
-        'xl': '1rem',
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-  ],
+  plugins: [],
 }
