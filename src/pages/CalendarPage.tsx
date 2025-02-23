@@ -1,6 +1,19 @@
 // pages/CalendarPage.tsx
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  isSameDay, 
+  addMonths, 
+  subMonths, 
+  isToday,
+  startOfWeek,
+  endOfWeek,
+  addDays
+} from 'date-fns';
 import { it } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from "../components/ui/button";
@@ -12,23 +25,39 @@ const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const monthDays = eachDayOfInterval({
-    start: startOfMonth(currentDate),
-    end: endOfMonth(currentDate)
-  });
+  // Ottiene tutti i giorni del mese includendo i giorni necessari per completare le settimane
+  const getDaysInMonth = (date: Date) => {
+    const start = startOfWeek(startOfMonth(date), { weekStartsOn: 1 }); // 1 indica che la settimana inizia il lunedì
+    const end = endOfWeek(endOfMonth(date), { weekStartsOn: 1 });
+    return eachDayOfInterval({ start, end });
+  };
+
+  const monthDays = getDaysInMonth(currentDate);
 
   const handlePreviousMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
   const selectedDateTasks = tasks.filter(task => {
-    if (task.type === 'routine') return true;
-    return task.date === format(selectedDate, 'yyyy-MM-dd');
+    if (task.type === 'oneTime') {
+      return task.date === format(selectedDate, 'yyyy-MM-dd');
+    }
+    if (task.type === 'routine') {
+      const dayOfWeek = format(selectedDate, 'eee').toLowerCase();
+      return task.weekdays?.includes(dayOfWeek) ?? false;
+    }
+    return false;
   });
 
   const hasTasksOnDate = (date: Date) => {
     return tasks.some(task => {
-      if (task.type === 'routine') return true;
-      return task.date === format(date, 'yyyy-MM-dd');
+      if (task.type === 'oneTime') {
+        return task.date === format(date, 'yyyy-MM-dd');
+      }
+      if (task.type === 'routine') {
+        const dayOfWeek = format(date, 'eee').toLowerCase();
+        return task.weekdays?.includes(dayOfWeek) ?? false;
+      }
+      return false;
     });
   };
 

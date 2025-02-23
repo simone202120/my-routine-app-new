@@ -13,6 +13,7 @@ interface AppContextType {
   deleteTask: (taskId: string) => void;
   deleteCounter: (counterId: string) => void;
   resetDailyCounters: () => void;
+  resetAllData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -130,6 +131,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCounters(prev => prev.filter(counter => counter.id !== counterId));
   }, []);
 
+  const resetAllData = useCallback(() => {
+    setTasks([]);
+    setCounters([]);
+    localStorage.removeItem(STORAGE_KEYS.TASKS);
+    localStorage.removeItem(STORAGE_KEYS.COUNTERS);
+    localStorage.removeItem(STORAGE_KEYS.LAST_RESET);
+  }, []);
+
   return (
     <AppContext.Provider value={{
       tasks,
@@ -141,7 +150,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       decrementCounter,
       deleteTask,
       deleteCounter,
-      resetDailyCounters
+      resetDailyCounters,
+      resetAllData
     }}>
       {children}
     </AppContext.Provider>
