@@ -127,7 +127,60 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* ... resto del codice per i contatori ... */}
+      {/* Counters Sections */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Contatori Giornalieri</h2>
+        <div className="space-y-3">
+          {counters
+            .filter(counter => counter.type === 'daily')
+            .map(counter => (
+              <CounterItem
+                key={counter.id}
+                counter={counter}
+                onIncrement={incrementCounter}
+                onDecrement={decrementCounter}
+              />
+            ))}
+          {counters.filter(c => c.type === 'daily').length === 0 && (
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
+              <p className="text-gray-500">Nessun contatore giornaliero</p>
+              <Button 
+                variant="link" 
+                className="mt-2"
+                onClick={() => setIsCounterFormOpen(true)}
+              >
+                Aggiungi il tuo primo contatore
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <h2 className="text-lg font-semibold">Contatori Totali</h2>
+        <div className="space-y-3">
+          {counters
+            .filter(counter => counter.type === 'total')
+            .map(counter => (
+              <CounterItem
+                key={counter.id}
+                counter={counter}
+                onIncrement={incrementCounter}
+                onDecrement={decrementCounter}
+              />
+            ))}
+          {counters.filter(c => c.type === 'total').length === 0 && (
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
+              <p className="text-gray-500">Nessun contatore totale</p>
+              <Button 
+                variant="link" 
+                className="mt-2"
+                onClick={() => setIsCounterFormOpen(true)}
+              >
+                Aggiungi il tuo primo contatore
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Forms modali */}
       {isTaskFormOpen && (
