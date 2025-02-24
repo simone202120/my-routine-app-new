@@ -12,7 +12,6 @@ import { CheckCircle2, Clock, Target } from 'lucide-react';
 const StatisticsPage = () => {
   const { tasks, counters } = useApp();
 
-  // Calcolo statistiche task
   const taskStats = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter(task => task.isCompleted).length;
@@ -28,13 +27,13 @@ const StatisticsPage = () => {
     };
   }, [tasks]);
 
-  // Dati per il grafico a torta
   const taskTypeData = [
     { name: 'Routine', value: taskStats.routine },
     { name: 'Una tantum', value: taskStats.oneTime }
   ];
 
-  const COLORS = ['#8b5cf6', '#6366f1', '#ec4899', '#14b8a6'];
+  // Nuovi colori verdi pastello
+  const COLORS = ['#5bb584', '#7ec89f', '#a8dbc0', '#d0eadc'];
 
   return (
     <div className="space-y-6">
@@ -55,7 +54,7 @@ const StatisticsPage = () => {
               <p className="text-sm text-gray-500">Completati</p>
               <p className="text-2xl font-bold mt-1">{taskStats.completed}</p>
             </div>
-            <CheckCircle2 className="h-8 w-8 text-green-500" />
+            <CheckCircle2 className="h-8 w-8 text-primary-500" />
           </div>
         </div>
         <div className="col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
@@ -64,12 +63,11 @@ const StatisticsPage = () => {
               <p className="text-sm text-gray-500">Tasso di Completamento</p>
               <p className="text-2xl font-bold mt-1">{taskStats.completion}%</p>
             </div>
-            <Clock className="h-8 w-8 text-blue-500" />
+            <Clock className="h-8 w-8 text-primary-500" />
           </div>
-          {/* Barra di progresso */}
           <div className="mt-3 h-2 bg-gray-100 rounded-full">
             <div 
-              className="h-full bg-primary-500 rounded-full"
+              className="h-full bg-primary-500 rounded-full transition-all duration-300"
               style={{ width: `${taskStats.completion}%` }}
             />
           </div>
