@@ -2,25 +2,134 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { Button } from "../components/ui/button";
-import { Trash2, RefreshCw, LogOut } from 'lucide-react';
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Trash2, RefreshCw, LogOut, User, Lock } from 'lucide-react';
 
 const SettingsPage = () => {
-  const { resetDailyCounters, tasks, counters, resetAllData } = useApp();
+  const { resetDailyCounters, tasks, counters, resetAllData, isLoading } = useApp();
+  const { currentUser, logout, updateUserProfile } = useAuth();
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
+  const [isEditing, setIsEditing] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+  const [updateSuccess, setUpdateSuccess] = useState('');
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = async () => {
     if (showConfirmDelete) {
-      resetAllData();
+      await resetAllData();
       setShowConfirmDelete(false);
     } else {
       setShowConfirmDelete(true);
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdateError('');
+      setUpdateSuccess('');
+      
+      if (displayName.trim() === '') {
+        return setUpdateError('Il nome non può essere vuoto');
+      }
+      
+      await updateUserProfile(displayName);
+      setUpdateSuccess('Profilo aggiornato con successo');
+      setIsEditing(false);
+    } catch (error) {
+      setUpdateError('Impossibile aggiornare il profilo');
+      console.error("Update profile failed", error);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen">Caricamento...</div>;
+  }
+
   return (
     <div className="pb-20 pt-16">
       <h1 className="text-2xl font-bold mb-6">Impostazioni</h1>
+
+      {/* Profilo utente */}
+      <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-3">Profilo Utente</h2>
+        
+        {updateError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{updateError}</AlertDescription>
+          </Alert>
+        )}
+        
+        {updateSuccess && (
+          <Alert variant="success" className="mb-4">
+            <AlertDescription>{updateSuccess}</AlertDescription>
+          </Alert>
+        )}
+        
+        {isEditing ? (
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div>
+              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
+                Nome
+              </label>
+              <input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              />
+            </div>
+            <div className="flex space-x-2">
+              <Button type="submit">Salva</Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setIsEditing(false);
+                  setDisplayName(currentUser?.displayName || '');
+                }}
+              >
+                Annulla
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p>{currentUser?.email}</p>
+              </div>
+              <User className="h-5 w-5 text-gray-400" />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Nome</p>
+                <p>{currentUser?.displayName || 'Non impostato'}</p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsEditing(true)}
+              >
+                Modifica
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Statistiche generali */}
       <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
@@ -28,6 +137,7 @@ const SettingsPage = () => {
         <div className="space-y-2">
           <p>Impegni totali: {tasks.length}</p>
           <p>Contatori attivi: {counters.length}</p>
+          <p>Account creato: {currentUser?.metadata.creationTime ? new Date(currentUser.metadata.creationTime).toLocaleDateString('it-IT') : 'N/A'}</p>
         </div>
       </div>
 
@@ -40,7 +150,7 @@ const SettingsPage = () => {
           <Button
             variant="ghost"
             className="w-full p-4 flex items-center justify-between text-left"
-            onClick={resetDailyCounters}
+            onClick={() => resetDailyCounters()}
           >
             <div>
               <p className="font-medium">Reset Contatori Giornalieri</p>
@@ -84,6 +194,7 @@ const SettingsPage = () => {
           <Button
             variant="ghost"
             className="w-full p-4 flex items-center justify-between text-left"
+            onClick={handleLogout}
           >
             <div>
               <p className="font-medium">Esci</p>
