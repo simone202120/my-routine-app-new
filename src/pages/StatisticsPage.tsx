@@ -118,17 +118,7 @@ const StatisticsPage = () => {
                 fill="#8884d8"
                 paddingAngle={5}
                 dataKey="value"
-                label={({ percent }) => (
-                  <text
-                    x={0}
-                    y={0}
-                    textAnchor="middle"
-                    fill="white"
-                    style={{ fontSize: '12px', fontWeight: 'bold' }}
-                  >
-                    {`${(percent * 100).toFixed(0)}%`}
-                  </text>
-                )}
+                
               >
                 {taskTypeData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
