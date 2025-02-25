@@ -82,14 +82,14 @@ const HomePage = () => {
           onClick={() => setIsTaskFormOpen(true)}
         >
           <Plus className="h-5 w-5" />
-          <span>Nuovo impegno</span>
+          <span>Impegno</span>
         </Button>
         <Button 
           className="flex items-center justify-center gap-2 h-auto py-3"
           onClick={() => setIsCounterFormOpen(true)}
         >
           <Plus className="h-5 w-5" />
-          <span>Nuovo contatore</span>
+          <span>Contatore</span>
         </Button>
       </div>
 
