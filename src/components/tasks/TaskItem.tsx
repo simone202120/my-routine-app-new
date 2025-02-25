@@ -47,47 +47,45 @@ const TaskItem: React.FC<TaskItemProps> = ({
         ${task.isCompleted ? 'bg-gray-50' : ''}
       `}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
+          <div className="flex-1 min-w-0">
+            <h3 className={`font-medium truncate ${
+              task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
+            }`}>
+              {task.title}
+            </h3>
+            {task.description && (
+              <p className="text-sm text-gray-500 mt-1 truncate">
+                {task.description}
+              </p>
+            )}
+            {task.time && (
+              <div className="flex items-center text-sm text-gray-500 mt-1">
+                <Clock className="h-4 w-4 mr-1" />
+                <span>{task.time}</span>
+                {task.frequency && (
+                  <span className="ml-2">• {task.frequency}</span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
             <Button
-              variant={task.isCompleted ? "outline" : "default"}
+              variant="ghost"
               size="icon"
-              className="rounded-full shrink-0"
+              className={`text-gray-400 ${task.isCompleted ? 'text-primary-500' : 'hover:text-primary-500'} transition-colors`}
               onClick={() => onComplete(task.id)}
             >
-              <Check className={`h-4 w-4 ${
-                task.isCompleted ? 'text-primary-500' : 'text-white'
-              }`} />
+              <Check className="h-4 w-4" />
             </Button>
-            <div className="flex-1 min-w-0">
-              <h3 className={`font-medium truncate ${
-                task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
-              }`}>
-                {task.title}
-              </h3>
-              {task.description && (
-                <p className="text-sm text-gray-500 mt-1 truncate">
-                  {task.description}
-                </p>
-              )}
-              {task.time && (
-                <div className="flex items-center text-sm text-gray-500 mt-1">
-                  <Clock className="h-4 w-4 mr-1" />
-                  <span>{task.time}</span>
-                  {task.frequency && (
-                    <span className="ml-2">• {task.frequency}</span>
-                  )}
-                </div>
-              )}
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-400 hover:text-red-500 transition-colors"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-400 hover:text-red-500 transition-colors"
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 

@@ -17,7 +17,11 @@ const WEEKDAYS = [
 
 const DURATION_TYPES = [
   { id: 'custom', label: 'Personalizzata' },
+  { id: 'oneWeek', label: '1 Settimana' },
+  { id: 'twoWeek', label: '2 Settimana' },
+  { id: 'threeWeek', label: '3 Settimana' },
   { id: 'oneMonth', label: '1 Mese' },
+  { id: 'twoMonth', label: '2 Mese' },
   { id: 'threeMonths', label: '3 Mesi' },
   { id: 'sixMonths', label: '6 Mesi' },
   { id: 'oneYear', label: '1 Anno' }
@@ -62,8 +66,20 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     let endDate = startDate;
 
     switch (durationType) {
+      case 'oneWeek':
+        endDate = addWeeks(startDate, 1);
+        break;
+      case 'twoWeek':
+        endDate = addWeeks(startDate, 2);
+        break;
+      case 'threeWeek':
+        endDate = addWeeks(startDate, 3);
+        break;
       case 'oneMonth':
         endDate = addMonths(startDate, 1);
+        break;
+      case 'twoMonth':
+        endDate = addMonths(startDate, 2);
         break;
       case 'threeMonths':
         endDate = addMonths(startDate, 3);
