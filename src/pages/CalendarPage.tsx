@@ -49,9 +49,14 @@ const CalendarPage = () => {
     }
     if (task.type === 'routine') {
       const dayOfWeek = format(selectedDate, 'eee').toLowerCase();
-      const isScheduledToday = task.weekdays?.includes(dayOfWeek) ?? false;
+      const isScheduledDay = task.weekdays?.includes(dayOfWeek) ?? false;
       const isExcluded = task.excludedDates?.includes(selectedDateStr) ?? false;
-      return isScheduledToday && !isExcluded;
+      
+      // Controlla che la data selezionata sia nel range della routine
+      const isAfterStart = task.startDate ? selectedDateStr >= task.startDate : true;
+      const isBeforeEnd = task.endDate ? selectedDateStr <= task.endDate : true;
+      
+      return isScheduledDay && isAfterStart && isBeforeEnd && !isExcluded;
     }
     return false;
   });
@@ -64,9 +69,14 @@ const CalendarPage = () => {
       }
       if (task.type === 'routine') {
         const dayOfWeek = format(date, 'eee').toLowerCase();
-        const isScheduledToday = task.weekdays?.includes(dayOfWeek) ?? false;
+        const isScheduledDay = task.weekdays?.includes(dayOfWeek) ?? false;
         const isExcluded = task.excludedDates?.includes(dateStr) ?? false;
-        return isScheduledToday && !isExcluded;
+        
+        // Controlla che la data sia nel range della routine
+        const isAfterStart = task.startDate ? dateStr >= task.startDate : true;
+        const isBeforeEnd = task.endDate ? dateStr <= task.endDate : true;
+        
+        return isScheduledDay && isAfterStart && isBeforeEnd && !isExcluded;
       }
       return false;
     });
