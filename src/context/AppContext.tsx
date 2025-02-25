@@ -122,8 +122,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addTask = async (taskData: Omit<Task, 'id' | 'isCompleted'>) => {
     if (!currentUser) return;
     
+    // Crea una copia dei dati e rimuovi tutti i campi undefined
+    const cleanedData: Record<string, any> = {};
+    
+    // Aggiungi solo i campi che hanno un valore definito
+    Object.entries(taskData).forEach(([key, value]) => {
+      if (value !== undefined) {
+        cleanedData[key] = value;
+      }
+    });
+    
     const newTask = {
-      ...taskData,
+      ...cleanedData,
       isCompleted: false,
       userId: currentUser.uid,
       createdAt: new Date()

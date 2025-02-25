@@ -106,7 +106,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
       type: taskData.type,
       time: taskData.time,
       date: taskData.type === 'oneTime' ? taskData.date : undefined,
-      weekdays: taskData.type === 'routine' ? taskData.weekdays : undefined,
+      weekdays: taskData.type === 'routine' ? taskData.weekdays : [], // Usa array vuoto invece di undefined
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
       endDate: taskData.type === 'routine' ? taskData.endDate : undefined
     });
