@@ -14,6 +14,7 @@ import {
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { Task, Counter, TaskType, CounterType } from '../types';
+import { format } from 'date-fns';
 
 interface AppContextType {
   tasks: Task[];
@@ -177,14 +178,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addCounter = async (counterData: Omit<Counter, 'id' | 'currentValue'>) => {
     if (!currentUser) return;
-    
+  
     const newCounter = {
       ...counterData,
       currentValue: 0,
       userId: currentUser.uid,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
-    
+  
     await addDoc(collection(db, 'counters'), newCounter);
   };
 
@@ -221,9 +222,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetDailyCounters = async () => {
     if (!currentUser) return;
-    
-    const dailyCounters = counters.filter(counter => counter.type === 'daily');
-    
+  
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const dailyCounters = counters.filter(
+      (counter) =>
+        counter.type === 'daily' &&
+        counter.startDate <= today &&
+        (!counter.endDate || counter.endDate >= today)
+    );
+  
     for (const counter of dailyCounters) {
       const counterRef = doc(db, 'counters', counter.id);
       await updateDoc(counterRef, { currentValue: 0 });
@@ -241,6 +248,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Delete all counters
     for (const counter of counters) {
       await deleteDoc(doc(db, 'counters', counter.id));
+    }
+  };
+
+  const saveCounterEntries = async () => {
+    if (!currentUser) return;
+  
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const dailyCounters = counters.filter(
+      (counter) =>
+        counter.type === 'daily' &&
+        counter.startDate <= today &&
+        (!counter.endDate || counter.endDate >= today)
+    );
+  
+    for (const counter of dailyCounters) {
+      await addDoc(collection(db, 'counterEntries'), {
+        counterId: counter.id,
+        date: today,
+        value: counter.currentValue,
+      });
     }
   };
 

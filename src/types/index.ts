@@ -24,6 +24,9 @@ export interface Counter {
   name: string;
   type: CounterType;
   currentValue: number;
+  startDate: string;
+  endDate?: string;
+  duration: 'day' | 'custom';
 }
 
 export interface CounterEntry {

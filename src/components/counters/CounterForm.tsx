@@ -3,19 +3,26 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from "../ui/button";
 import { CounterType } from '../../types';
+import { format } from 'date-fns';
 
 interface CounterFormProps {
   onClose: () => void;
   onSubmit: (counter: {
     name: string;
     type: CounterType;
+    startDate: string;
+    endDate?: string;
+    duration: 'day' | 'custom';
   }) => void;
 }
 
 const CounterForm: React.FC<CounterFormProps> = ({ onClose, onSubmit }) => {
   const [counterData, setCounterData] = useState({
     name: '',
-    type: 'daily' as CounterType
+    type: 'daily' as CounterType,
+    duration: 'day' as 'day' | 'custom',
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -61,6 +68,35 @@ const CounterForm: React.FC<CounterFormProps> = ({ onClose, onSubmit }) => {
               <option value="total">Totale</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Durata
+            </label>
+            <select
+              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              value={counterData.duration}
+              onChange={(e) =>
+                setCounterData({ ...counterData, duration: e.target.value as 'day' | 'custom' })
+              }
+            >
+              <option value="day">Solo per oggi</option>
+              <option value="custom">Personalizzata</option>
+            </select>
+          </div>
+          {counterData.duration === 'custom' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data di fine
+              </label>
+              <input
+                type="date"
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                value={counterData.endDate}
+                onChange={(e) => setCounterData({ ...counterData, endDate: e.target.value })}
+                min={counterData.startDate}
+              />
+            </div>
+          )}
           <div className="flex justify-end space-x-3 pt-4">
             <Button variant="outline" type="button" onClick={onClose}>
               Annulla
