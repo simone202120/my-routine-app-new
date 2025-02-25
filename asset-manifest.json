@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/my-routine-app-new/static/css/main.e0275c6f.css",
+    "main.js": "/my-routine-app-new/static/js/main.08a81cf4.js",
+    "static/js/453.350a4fac.chunk.js": "/my-routine-app-new/static/js/453.350a4fac.chunk.js",
+    "index.html": "/my-routine-app-new/index.html",
+    "main.e0275c6f.css.map": "/my-routine-app-new/static/css/main.e0275c6f.css.map",
+    "main.08a81cf4.js.map": "/my-routine-app-new/static/js/main.08a81cf4.js.map",
+    "453.350a4fac.chunk.js.map": "/my-routine-app-new/static/js/453.350a4fac.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e0275c6f.css",
+    "static/js/main.08a81cf4.js"
+  ]
+}
