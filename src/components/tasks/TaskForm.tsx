@@ -230,17 +230,30 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                 </div>
               </>
             ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data
-                </label>
-                <input
-                  type="date"
-                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                  value={taskData.date}
-                  onChange={(e) => setTaskData({...taskData, date: e.target.value})}
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Data
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    value={taskData.date}
+                    onChange={(e) => setTaskData({...taskData, date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Orario
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    value={taskData.time}
+                    onChange={(e) => setTaskData({...taskData, time: e.target.value})}
+                  />
+                </div>
+              </>
             )}
           </form>
         </div>
