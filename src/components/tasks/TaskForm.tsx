@@ -147,8 +147,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 pb-24">
-      <div className="bg-white rounded-xl w-full max-w-md max-h-[75vh] flex flex-col relative top-[-3rem]">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-bold text-gray-900">Nuovo Impegno</h2>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">

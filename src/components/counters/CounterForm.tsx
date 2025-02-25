@@ -31,8 +31,8 @@ const CounterForm: React.FC<CounterFormProps> = ({ onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-t-xl sm:rounded-xl w-full max-w-lg">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-lg">
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-bold text-gray-900">Nuovo Contatore</h2>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
