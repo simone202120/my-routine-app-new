@@ -1,11 +1,8 @@
 // pages/StatisticsPage.tsx
 import React, { useMemo } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { CheckCircle2, Clock, Target } from 'lucide-react';
 
@@ -32,9 +29,41 @@ const StatisticsPage = () => {
     { name: 'Una tantum', value: taskStats.oneTime }
   ];
 
-  // Nuovi colori verdi pastello
-  const COLORS = ['#5bb584', '#7ec89f', '#a8dbc0', '#d0eadc'];
+  // More distinct colors with good contrast
+  const COLORS = ['#5bb584', '#274e23'];  // Green and orange
 
+  // Custom tooltip for mobile friendliness
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-white p-2 rounded-lg shadow-md">
+          <p className="font-medium">{data.name}</p>
+          <p>{data.value} impegni ({((data.value / taskStats.total) * 100).toFixed(1)}%)</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom legend for better readability
+  const CustomLegend = ({ payload }: any) => {
+    return (
+      <div className="flex justify-center space-x-4 mt-2">
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center">
+            <span 
+              className="inline-block w-3 h-3 mr-2 rounded-full"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-sm">
+              {entry.value} ({entry.payload.value})
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
   return (
     <div className="space-y-6">
       {/* Card statistiche generali */}
@@ -84,19 +113,29 @@ const StatisticsPage = () => {
                 data={taskTypeData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={80}
+                innerRadius="60%"
+                outerRadius="80%"
                 fill="#8884d8"
                 paddingAngle={5}
                 dataKey="value"
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                label={({ percent }) => (
+                  <text
+                    x={0}
+                    y={0}
+                    textAnchor="middle"
+                    fill="white"
+                    style={{ fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    {`${(percent * 100).toFixed(0)}%`}
+                  </text>
+                )}
               >
                 {taskTypeData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend content={<CustomLegend />} />
             </PieChart>
           </ResponsiveContainer>
         </div>
