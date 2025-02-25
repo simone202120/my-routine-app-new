@@ -32,6 +32,7 @@ interface TaskFormProps {
   onClose: () => void;
   onSubmit: (task: {
     title: string;
+    description?: string;
     type: TaskType;
     time?: string;
     date?: string;
@@ -45,6 +46,7 @@ interface TaskFormProps {
 const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
   const [taskData, setTaskData] = useState({
     title: '',
+    description: '',
     type: 'routine' as TaskType,
     time: '',
     date: '',
@@ -123,16 +125,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+    
+    // Prepara l'oggetto task da inviare
+    const task = {
       title: taskData.title,
       type: taskData.type,
       time: taskData.time,
       date: taskData.type === 'oneTime' ? taskData.date : undefined,
-      weekdays: taskData.type === 'routine' ? taskData.weekdays : [], // Usa array vuoto invece di undefined
+      weekdays: taskData.type === 'routine' ? taskData.weekdays : [], 
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
       endDate: taskData.type === 'routine' ? taskData.endDate : undefined,
       notifyBefore: taskData.notifyBefore
-    });
+    };
+    
+    // Aggiungi descrizione solo se non è vuota
+    if (taskData.description.trim()) {
+      Object.assign(task, { description: taskData.description });
+    }
+    
+    onSubmit(task);
   };
 
   return (
@@ -157,6 +168,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                 value={taskData.title}
                 onChange={(e) => setTaskData({...taskData, title: e.target.value})}
                 required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descrizione (opzionale)
+              </label>
+              <textarea
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                value={taskData.description}
+                onChange={(e) => setTaskData({...taskData, description: e.target.value})}
+                rows={2}
               />
             </div>
             

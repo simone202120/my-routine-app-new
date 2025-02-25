@@ -1,6 +1,6 @@
 // components/tasks/TaskItem.tsx
 import React, { useState } from 'react';
-import { Check, Clock, Trash2 } from 'lucide-react';
+import { Check, Clock, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "../ui/button";
 import { Task } from '../../types';
 import DeleteTaskDialog from './DeleteTaskDialog';
@@ -21,6 +21,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
   currentDate 
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const handleDelete = () => {
     setShowDeleteDialog(true);
@@ -40,6 +41,13 @@ const TaskItem: React.FC<TaskItemProps> = ({
     setShowDeleteDialog(false);
   };
 
+  const toggleExpand = () => {
+    setExpanded(!expanded);
+  };
+
+  // Verifica se c'è una descrizione e se dovremmo mostrare il pulsante per espanderla
+  const hasDescription = task.description && task.description.trim().length > 0;
+
   return (
     <>
       <div className={`
@@ -48,18 +56,34 @@ const TaskItem: React.FC<TaskItemProps> = ({
       `}>
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h3 className={`font-medium truncate ${
-              task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
-            }`}>
-              {task.title}
-            </h3>
-            {task.description && (
-              <p className="text-sm text-gray-500 mt-1 truncate">
-                {task.description}
-              </p>
-            )}
+            <div className="flex items-center justify-between mb-1">
+              <h3 className={`font-medium ${
+                task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
+              }`}>
+                {task.title}
+              </h3>
+              <div className="flex items-center space-x-2 ml-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`text-gray-400 ${task.isCompleted ? 'text-primary-500' : 'hover:text-primary-500'} transition-colors`}
+                  onClick={() => onComplete(task.id)}
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
             {task.time && (
-              <div className="flex items-center text-sm text-gray-500 mt-1">
+              <div className="flex items-center text-sm text-gray-500 mb-1">
                 <Clock className="h-4 w-4 mr-1" />
                 <span>{task.time}</span>
                 {task.frequency && (
@@ -67,24 +91,30 @@ const TaskItem: React.FC<TaskItemProps> = ({
                 )}
               </div>
             )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`text-gray-400 ${task.isCompleted ? 'text-primary-500' : 'hover:text-primary-500'} transition-colors`}
-              onClick={() => onComplete(task.id)}
-            >
-              <Check className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-red-500 transition-colors"
-              onClick={handleDelete}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            
+            {hasDescription && (
+              <div>
+                <div 
+                  className="flex items-center text-sm text-primary-600 hover:text-primary-700 cursor-pointer mt-1"
+                  onClick={toggleExpand}
+                >
+                  <span className="mr-1">
+                    {expanded ? 'Nascondi dettagli' : 'Mostra dettagli'}
+                  </span>
+                  {expanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </div>
+                
+                {expanded && (
+                  <div className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded-md">
+                    {task.description}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
