@@ -1,6 +1,7 @@
 // Tipi per gli impegni
 export type TaskType = 'routine' | 'oneTime';
 
+
 export interface Task {
   id: string;
   title: string;
@@ -12,8 +13,9 @@ export interface Task {
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
-  frequency?: string;  // Aggiungiamo questa riga
-  excludedDates?: string[];  // Aggiungi questa riga
+  frequency?: string;
+  excludedDates?: string[];
+  notifyBefore?: boolean; // Flag per le notifiche prima del task
 }
 
 // Tipi per i contatori

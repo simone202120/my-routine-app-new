@@ -1,9 +1,10 @@
 // components/tasks/TaskForm.tsx
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bell, BellOff } from 'lucide-react';
 import { Button } from "../ui/button";
 import { TaskType } from '../../types';
 import { addWeeks, addMonths, addYears, format } from 'date-fns';
+import NotificationService from '../../services/NotificationService';
 
 const WEEKDAYS = [
   { id: 'mon', label: 'Lun' },
@@ -37,6 +38,7 @@ interface TaskFormProps {
     weekdays?: string[];
     startDate?: string;
     endDate?: string;
+    notifyBefore?: boolean;
   }) => void;
 }
 
@@ -49,8 +51,21 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     weekdays: [] as string[],
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: '',
-    durationType: 'custom'
+    durationType: 'custom',
+    notifyBefore: false
   });
+  
+  const [notificationsAvailable, setNotificationsAvailable] = useState(false);
+  
+  useEffect(() => {
+    const checkNotificationPermission = async () => {
+      const notificationService = NotificationService.getInstance();
+      const isEnabled = await notificationService.requestPermission();
+      setNotificationsAvailable(isEnabled);
+    };
+    
+    checkNotificationPermission();
+  }, []);
 
   const toggleWeekday = (dayId: string) => {
     setTaskData(prev => ({
@@ -99,6 +114,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     }));
   };
 
+  const toggleNotification = () => {
+    setTaskData(prev => ({
+      ...prev,
+      notifyBefore: !prev.notifyBefore
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -108,7 +130,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
       date: taskData.type === 'oneTime' ? taskData.date : undefined,
       weekdays: taskData.type === 'routine' ? taskData.weekdays : [], // Usa array vuoto invece di undefined
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
-      endDate: taskData.type === 'routine' ? taskData.endDate : undefined
+      endDate: taskData.type === 'routine' ? taskData.endDate : undefined,
+      notifyBefore: taskData.notifyBefore
     });
   };
 
@@ -254,6 +277,35 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                   />
                 </div>
               </>
+            )}
+            
+            {/* Opzione per le notifiche */}
+            {notificationsAvailable && (
+              <div className="flex items-center justify-between px-2 py-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-800">Notifica</p>
+                  <p className="text-sm text-gray-500">Ricevi un avviso 10 minuti prima</p>
+                </div>
+                <Button
+                  type="button"
+                  variant={taskData.notifyBefore ? "default" : "outline"}
+                  className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+                  onClick={toggleNotification}
+                >
+                  {taskData.notifyBefore ? (
+                    <Bell className="h-5 w-5" />
+                  ) : (
+                    <BellOff className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+            )}
+            
+            {/* Messaggio di notifica disabilitata */}
+            {!notificationsAvailable && taskData.time && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                Per ricevere notifiche per questo impegno, abilita i permessi per le notifiche nel tuo browser.
+              </div>
             )}
           </form>
         </div>

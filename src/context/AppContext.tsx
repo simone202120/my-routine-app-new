@@ -15,6 +15,7 @@ import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { Task, Counter, TaskType, CounterType } from '../types';
 import { format } from 'date-fns';
+import NotificationService from '../services/NotificationService';
 
 interface AppContextType {
   tasks: Task[];
@@ -47,6 +48,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [counters, setCounters] = useState<Counter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { currentUser } = useAuth();
+  
+  // Inizializza il servizio di notifiche
+  const notificationService = NotificationService.getInstance();
 
   // Fetch user data from Firestore
   useEffect(() => {
@@ -71,6 +75,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...doc.data()
       } as Task));
       setTasks(tasksData);
+      
+      // Aggiorna il servizio di notifiche con i nuovi task
+      notificationService.updateTasks(tasksData);
     });
 
     // Subscribe to counters collection
@@ -114,9 +121,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     checkAndResetCounters();
     
+    // Richiedi permesso per le notifiche
+    const requestNotificationPermission = async () => {
+      await notificationService.requestPermission();
+    };
+    
+    requestNotificationPermission();
+    
     return () => {
       unsubscribeTasks();
       unsubscribeCounters();
+      notificationService.clearAllNotifications();
     };
   }, [currentUser]);
 
@@ -150,13 +165,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!taskToToggle) return;
     
     const taskRef = doc(db, 'tasks', taskId);
+    const newIsCompleted = !taskToToggle.isCompleted;
+    
     await updateDoc(taskRef, {
-      isCompleted: !taskToToggle.isCompleted
+      isCompleted: newIsCompleted
     });
+    
+    // Se il task è stato completato, cancella le sue notifiche
+    if (newIsCompleted && taskToToggle.notifyBefore) {
+      notificationService.clearTaskNotification(taskId);
+    }
   };
 
   const deleteTask = async (taskId: string) => {
     if (!currentUser) return;
+    
+    // Rimuovi le notifiche per questo task
+    notificationService.clearTaskNotification(taskId);
     
     const taskRef = doc(db, 'tasks', taskId);
     await deleteDoc(taskRef);
@@ -239,6 +264,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetAllData = async () => {
     if (!currentUser) return;
+    
+    // Cancella tutte le notifiche
+    notificationService.clearAllNotifications();
     
     // Delete all tasks
     for (const task of tasks) {
