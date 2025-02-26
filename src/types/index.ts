@@ -1,10 +1,16 @@
-// src/types/index.ts
+// src/types/index.ts - Aggiorna i tipi per supportare nuove opzioni di ricorrenza
+// Aggiungi o modifica queste definizioni nel file
+
 // Tipi per gli impegni
 export type TaskType = 'routine' | 'oneTime';
 
 // Tipi di cadenza per le routine
 export type RecurrenceType = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 
+// Tipi di unità di tempo per ricorrenze personalizzate
+export type TimeUnit = 'days' | 'weeks' | 'months';
+
+// Estendi l'interfaccia Task se necessario
 export interface Task {
   id: string;
   title: string;
@@ -18,11 +24,11 @@ export interface Task {
   isCompleted: boolean;
   frequency?: string;
   excludedDates?: string[];
-  notifyBefore?: boolean; // Flag per le notifiche prima del task
-  recurrenceType?: RecurrenceType; // Tipo di ricorrenza (settimanale, bisettimanale, ecc.)
-  recurrenceInterval?: number; // Intervallo per ricorrenze custom (es. ogni X giorni)
+  notifyBefore?: boolean;
+  recurrenceType?: RecurrenceType;
+  recurrenceInterval?: number;
+  recurrenceUnit?: TimeUnit; // Nuova proprietà per l'interfaccia locale del form
 }
-
 // Tipi per i contatori
 export type CounterType = 'daily' | 'total';
 

@@ -3,14 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Bell, BellOff, ArrowLeft } from 'lucide-react';
 import { Button } from "../components/ui/button";
-import { TaskType, RecurrenceType } from '../types';
+import { TaskType, RecurrenceType, TimeUnit } from '../types';
 import { addWeeks, addMonths, addYears, format } from 'date-fns';
 import NotificationService from '../services/NotificationService';
 import { useApp } from '../context/AppContext';
 import { PageTransition } from '../components/common/AnimatedComponents';
-
-// Importiamo un custom hook per nascondere il footer
-import { useLayoutContext } from '../context/LayoutContext'; // Dobbiamo creare questo context
+import { useLayoutContext } from '../context/LayoutContext';
 
 const WEEKDAYS = [
   { id: 'mon', label: 'Lun' },
@@ -34,6 +32,7 @@ const DURATION_TYPES = [
   { id: 'oneYear', label: '1 Anno' }
 ];
 
+// Opzioni di ricorrenza semplificate
 const RECURRENCE_TYPES = [
   { value: 'weekly', label: 'Ogni settimana' },
   { value: 'biweekly', label: 'Ogni 2 settimane' },
@@ -41,10 +40,17 @@ const RECURRENCE_TYPES = [
   { value: 'custom', label: 'Personalizzata' }
 ];
 
+// Unità di tempo per ricorrenze personalizzate
+const TIME_UNITS = [
+  { value: 'days', label: 'giorni' },
+  { value: 'weeks', label: 'settimane' },
+  { value: 'months', label: 'mesi' }
+];
+
 const CreateTaskPage = () => {
   const navigate = useNavigate();
   const { addTask } = useApp();
-  const { setShowFooter } = useLayoutContext(); // Utilizziamo il context
+  const { setShowFooter } = useLayoutContext();
   
   // Nascondiamo il footer quando la pagina si monta
   useEffect(() => {
@@ -66,7 +72,8 @@ const CreateTaskPage = () => {
     durationType: 'custom',
     notifyBefore: false,
     recurrenceType: 'weekly' as RecurrenceType,
-    recurrenceInterval: 1
+    recurrenceInterval: 1,
+    recurrenceUnit: 'days' as TimeUnit
   });
   
   const [notificationsAvailable, setNotificationsAvailable] = useState(false);
@@ -138,25 +145,43 @@ const CreateTaskPage = () => {
   const handleRecurrenceTypeChange = (recurrenceType: RecurrenceType) => {
     setTaskData(prev => {
       let recurrenceInterval = prev.recurrenceInterval;
+      let recurrenceUnit = prev.recurrenceUnit;
       
       if (recurrenceType === 'weekly') {
         recurrenceInterval = 1;
+        recurrenceUnit = 'weeks';
       } else if (recurrenceType === 'biweekly') {
         recurrenceInterval = 2;
+        recurrenceUnit = 'weeks';
       } else if (recurrenceType === 'monthly') {
         recurrenceInterval = 1;
+        recurrenceUnit = 'months';
+      } else if (recurrenceType === 'custom') {
+        recurrenceInterval = 1;
+        recurrenceUnit = 'days';
       }
       
       return {
         ...prev,
         recurrenceType,
-        recurrenceInterval
+        recurrenceInterval,
+        recurrenceUnit
       };
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Calcola l'intervallo in giorni in base all'unità selezionata
+    let intervalInDays = taskData.recurrenceInterval;
+    if (taskData.recurrenceType === 'custom') {
+      if (taskData.recurrenceUnit === 'weeks') {
+        intervalInDays = taskData.recurrenceInterval * 7;
+      } else if (taskData.recurrenceUnit === 'months') {
+        intervalInDays = taskData.recurrenceInterval * 30; // Approssimazione
+      }
+    }
     
     // Prepara l'oggetto task da inviare
     const task = {
@@ -170,7 +195,7 @@ const CreateTaskPage = () => {
       notifyBefore: taskData.notifyBefore,
       recurrenceType: taskData.type === 'routine' ? taskData.recurrenceType : undefined,
       recurrenceInterval: taskData.type === 'routine' && taskData.recurrenceType === 'custom' 
-        ? taskData.recurrenceInterval 
+        ? intervalInDays 
         : undefined
     };
     
@@ -211,7 +236,6 @@ const CreateTaskPage = () => {
         <div className="overflow-y-auto flex-1 pb-20">
           <div className="container max-w-md mx-auto p-4">
             <form id="taskForm" onSubmit={handleSubmit} className="space-y-6">
-              {/* Contenuto del form invariato */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Titolo
@@ -293,18 +317,29 @@ const CreateTaskPage = () => {
                         </label>
                         <input
                           type="number"
-                          min="1"
-                          max="365"
+                          min="0"
+                          max="100"
                           className="w-16 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                           value={taskData.recurrenceInterval}
                           onChange={(e) => setTaskData({
                             ...taskData, 
-                            recurrenceInterval: parseInt(e.target.value) || 1
+                            recurrenceInterval: parseInt(e.target.value) || 0
                           })}
                         />
-                        <label className="flex-1 text-sm text-gray-700">
-                          giorni
-                        </label>
+                        <select
+                          className="rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                          value={taskData.recurrenceUnit}
+                          onChange={(e) => setTaskData({
+                            ...taskData,
+                            recurrenceUnit: e.target.value as TimeUnit
+                          })}
+                        >
+                          {TIME_UNITS.map(unit => (
+                            <option key={unit.value} value={unit.value}>
+                              {unit.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>
@@ -429,7 +464,7 @@ const CreateTaskPage = () => {
           </div>
         </div>
 
-        {/* Footer - Sticky ma più in basso */}
+        {/* Footer - Sticky */}
         <div className="sticky bottom-0 left-0 right-0 border-t p-4 bg-white">
           <div className="container max-w-md mx-auto flex justify-between space-x-3">
             <Button 

@@ -1,5 +1,5 @@
-// src/utils/taskUtils.ts
-import { format } from 'date-fns';
+// src/utils/taskUtils.ts - versione aggiornata
+import { format, differenceInDays, differenceInMonths, isLastDayOfMonth } from 'date-fns';
 import { Task } from '../types';
 
 /**
@@ -55,16 +55,25 @@ export function isTaskScheduledForDate(task: Task, date: Date): boolean {
     return diffWeeks % 2 === 0;
   } 
   else if (task.recurrenceType === 'monthly') {
-    // Controlla se è lo stesso giorno del mese della data di inizio
-    return date.getDate() === startDate.getDate();
+    // Gestione speciale per mesi di lunghezza diversa
+    const startDateDay = startDate.getDate();
+    const dateDay = date.getDate();
+    
+    // Se la data di inizio è l'ultimo giorno del mese, 
+    // consideriamo anche l'ultimo giorno di altri mesi
+    if (isLastDayOfMonth(startDate) && isLastDayOfMonth(date)) {
+      return true;
+    }
+    
+    // Altrimenti verifica che sia lo stesso giorno del mese
+    return dateDay === startDateDay;
   } 
   else if (task.recurrenceType === 'custom' && task.recurrenceInterval) {
-    // Per ricorrenze personalizzate, calcola in base all'intervallo in giorni
-    const diffTime = date.getTime() - startDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // Per ricorrenze personalizzate
+    const daysDiff = differenceInDays(date, startDate);
     
     // Verifica se sono passati multipli esatti dell'intervallo
-    return diffDays % task.recurrenceInterval === 0;
+    return daysDiff % task.recurrenceInterval === 0;
   }
 
   return false;
