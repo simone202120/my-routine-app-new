@@ -1,20 +1,19 @@
 // pages/HomePage.tsx
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Sparkles } from 'lucide-react';
 import { Button } from "../components/ui/button";
 import TaskItem from '../components/tasks/TaskItem';
 import CounterItem from '../components/counters/CounterItem';
-import TaskForm from '../components/tasks/TaskForm';
-import CounterForm from '../components/counters/CounterForm';
 import { useApp } from '../context/AppContext';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 const HomePage = () => {
+  const navigate = useNavigate();
   const {
     tasks,
     counters,
-    addTask,
     toggleTaskComplete,
     deleteTask,
     deleteRoutineOccurrence,
@@ -23,9 +22,6 @@ const HomePage = () => {
     decrementCounter,
     deleteCounter
   } = useApp();
-
-  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-  const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -80,14 +76,14 @@ const HomePage = () => {
       <div className="grid grid-cols-2 gap-4">
         <Button 
           className="flex items-center justify-center gap-2 h-auto py-3"
-          onClick={() => setIsTaskFormOpen(true)}
+          onClick={() => navigate('/create-task')}
         >
           <Plus className="h-5 w-5" />
           <span>Impegno</span>
         </Button>
         <Button 
           className="flex items-center justify-center gap-2 h-auto py-3"
-          onClick={() => setIsCounterFormOpen(true)}
+          onClick={() => navigate('/create-counter')}
         >
           <Plus className="h-5 w-5" />
           <span>Contatore</span>
@@ -119,7 +115,7 @@ const HomePage = () => {
               <Button 
                 variant="link" 
                 className="mt-2"
-                onClick={() => setIsTaskFormOpen(true)}
+                onClick={() => navigate('/create-task')}
               >
                 Aggiungi il tuo primo impegno
               </Button>
@@ -149,7 +145,7 @@ const HomePage = () => {
               <Button 
                 variant="link" 
                 className="mt-2"
-                onClick={() => setIsCounterFormOpen(true)}
+                onClick={() => navigate('/create-counter')}
               >
                 Aggiungi il tuo primo contatore
               </Button>
@@ -176,7 +172,7 @@ const HomePage = () => {
               <Button 
                 variant="link" 
                 className="mt-2"
-                onClick={() => setIsCounterFormOpen(true)}
+                onClick={() => navigate('/create-counter')}
               >
                 Aggiungi il tuo primo contatore
               </Button>
@@ -184,26 +180,6 @@ const HomePage = () => {
           )}
         </div>
       </div>
-
-      {/* Forms modali */}
-      {isTaskFormOpen && (
-        <TaskForm
-          onClose={() => setIsTaskFormOpen(false)}
-          onSubmit={async (taskData) => {
-            await addTask(taskData);
-            setIsTaskFormOpen(false);
-          }}
-        />
-      )}
-      {isCounterFormOpen && (
-        <CounterForm
-          onClose={() => setIsCounterFormOpen(false)}
-          onSubmit={(counterData) => {
-            addCounter(counterData);
-            setIsCounterFormOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 };
