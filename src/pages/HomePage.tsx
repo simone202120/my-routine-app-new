@@ -8,6 +8,7 @@ import CounterItem from '../components/counters/CounterItem';
 import { useApp } from '../context/AppContext';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { isTaskScheduledForDate } from '../utils/TaskUtils'; // Importa la nuova utility
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -17,23 +18,21 @@ const HomePage = () => {
     toggleTaskComplete,
     deleteTask,
     deleteRoutineOccurrence,
-    addCounter,
     incrementCounter,
     decrementCounter,
     deleteCounter
   } = useApp();
 
   const today = format(new Date(), 'yyyy-MM-dd');
+  const currentDate = new Date();
 
+  // Modificata la logica di filtraggio per utilizzare la nuova utility
   const todayTasks = tasks.filter(task => {
     if (task.type === 'oneTime') {
       return task.date === today;
     }
     if (task.type === 'routine') {
-      const dayOfWeek = format(new Date(), 'eee').toLowerCase();
-      const isScheduledToday = task.weekdays?.includes(dayOfWeek) ?? false;
-      const isExcluded = task.excludedDates?.includes(today) ?? false;
-      return isScheduledToday && !isExcluded;
+      return isTaskScheduledForDate(task, currentDate);
     }
     return false;
   });

@@ -1,4 +1,4 @@
-// pages/CalendarPage.tsx - Corretto per gestire date undefined
+// pages/CalendarPage.tsx (modificato per la gestione delle ricorrenze)
 import React, { useState } from 'react';
 import { 
   format, 
@@ -21,6 +21,7 @@ import { Button } from "../components/ui/button";
 import TaskItem from '../components/tasks/TaskItem';
 import CounterItem from '../components/counters/CounterItem';
 import { useApp } from '../context/AppContext';
+import { isTaskScheduledForDate } from '../utils/TaskUtils'; // Importa la nuova utility
 
 const CalendarPage = () => {
   const { 
@@ -51,21 +52,13 @@ const CalendarPage = () => {
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const isSelectedDateToday = isToday(selectedDate);
 
-  // Filtra gli impegni per la data selezionata
+  // Filtra gli impegni per la data selezionata - MODIFICATO per usare la nuova utility
   const selectedDateTasks = tasks.filter(task => {
     if (task.type === 'oneTime') {
       return task.date === selectedDateStr;
     }
     if (task.type === 'routine') {
-      const dayOfWeek = format(selectedDate, 'eee').toLowerCase();
-      const isScheduledDay = task.weekdays?.includes(dayOfWeek) ?? false;
-      const isExcluded = task.excludedDates?.includes(selectedDateStr) ?? false;
-      
-      // Controlla che la data selezionata sia nel range della routine
-      const isAfterStart = task.startDate ? selectedDateStr >= task.startDate : true;
-      const isBeforeEnd = task.endDate ? selectedDateStr <= task.endDate : true;
-      
-      return isScheduledDay && isAfterStart && isBeforeEnd && !isExcluded;
+      return isTaskScheduledForDate(task, selectedDate);
     }
     return false;
   });
@@ -76,7 +69,6 @@ const CalendarPage = () => {
     if (counter.type !== 'daily') return false;
     
     // Controlla se la data selezionata è nel range di validità del contatore
-    // Aggiunto controllo per startDate undefined
     if (!counter.startDate) return false;
     
     try {
@@ -102,22 +94,15 @@ const CalendarPage = () => {
     return { ...counter, displayValue: counter.currentValue };
   });
 
+  // MODIFICATO per usare la nuova utility
   const hasTasksOnDate = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
     return tasks.some(task => {
       if (task.type === 'oneTime') {
+        const dateStr = format(date, 'yyyy-MM-dd');
         return task.date === dateStr;
       }
       if (task.type === 'routine') {
-        const dayOfWeek = format(date, 'eee').toLowerCase();
-        const isScheduledDay = task.weekdays?.includes(dayOfWeek) ?? false;
-        const isExcluded = task.excludedDates?.includes(dateStr) ?? false;
-        
-        // Controlla che la data sia nel range della routine
-        const isAfterStart = task.startDate ? dateStr >= task.startDate : true;
-        const isBeforeEnd = task.endDate ? dateStr <= task.endDate : true;
-        
-        return isScheduledDay && isAfterStart && isBeforeEnd && !isExcluded;
+        return isTaskScheduledForDate(task, date);
       }
       return false;
     });
@@ -264,7 +249,7 @@ const CalendarPage = () => {
           </div>
         )}
         
-                  {/* Sezione dei contatori giornalieri */}
+        {/* Sezione dei contatori giornalieri */}
         {selectedDateCounters.length > 0 && (
           <div>
             <h3 className="text-md font-medium text-gray-700 mb-3">Contatori Giornalieri</h3>
