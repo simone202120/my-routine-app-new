@@ -1,13 +1,16 @@
-// pages/StatisticsPage.tsx
-import React, { useMemo } from 'react';
+// pages/StatisticsPage.tsx - Aggiornato con la cronologia dei contatori
+import React, { useMemo, useState } from 'react';
 import { 
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { useApp } from '../context/AppContext';
-import { CheckCircle2, Clock, Target } from 'lucide-react';
+import { CheckCircle2, Clock, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import CounterHistory from '../components/counters/CounterHistory';
+import { Button } from '../components/ui/button';
 
 const StatisticsPage = () => {
-  const { tasks, counters } = useApp();
+  const { tasks, counters, counterEntries } = useApp();
+  const [expandedCounter, setExpandedCounter] = useState<string | null>(null);
 
   const taskStats = useMemo(() => {
     const total = tasks.length;
@@ -23,6 +26,34 @@ const StatisticsPage = () => {
       oneTime
     };
   }, [tasks]);
+
+  // Ottieni contatori unici dalle voci storiche
+  const uniqueCounterIds = useMemo(() => {
+    const ids = new Set<string>();
+    counterEntries.forEach(entry => {
+      ids.add(entry.counterId);
+    });
+    return Array.from(ids);
+  }, [counterEntries]);
+
+  // Mappa degli ID dei contatori ai loro nomi
+  const counterNames = useMemo(() => {
+    const names = new Map<string, string>();
+    
+    // Prima aggiungi i nomi dai contatori attuali
+    counters.forEach(counter => {
+      names.set(counter.id, counter.name);
+    });
+    
+    // Poi aggiungi nomi dalle voci storiche (per contatori che potrebbero essere stati eliminati)
+    counterEntries.forEach(entry => {
+      if (!names.has(entry.counterId) && entry.name) {
+        names.set(entry.counterId, entry.name);
+      }
+    });
+    
+    return names;
+  }, [counters, counterEntries]);
 
   const taskTypeData = [
     { name: 'Routine', value: taskStats.routine },
@@ -64,6 +95,30 @@ const StatisticsPage = () => {
       </div>
     );
   };
+
+  const toggleExpandCounter = (counterId: string) => {
+    if (expandedCounter === counterId) {
+      setExpandedCounter(null);
+    } else {
+      setExpandedCounter(counterId);
+    }
+  };
+
+  // Raggruppa le voci dei contatori per counterId
+  const counterEntriesByCounter = useMemo(() => {
+    const grouped = new Map<string, number>();
+    
+    uniqueCounterIds.forEach(counterId => {
+      // Trova tutte le voci per questo contatore
+      const entries = counterEntries.filter(entry => entry.counterId === counterId);
+      // Calcola il totale delle voci
+      const count = entries.length;
+      grouped.set(counterId, count);
+    });
+    
+    return grouped;
+  }, [counterEntries, uniqueCounterIds]);
+
   return (
     <div className="space-y-6">
       {/* Card statistiche generali */}
@@ -131,7 +186,7 @@ const StatisticsPage = () => {
         </div>
       </div>
 
-      {/* Contatori */}
+      {/* Contatori Attuali */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Contatori Giornalieri</h2>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
@@ -177,6 +232,46 @@ const StatisticsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Cronologia Contatori */}
+      {uniqueCounterIds.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Cronologia Contatori</h2>
+          
+          {uniqueCounterIds.map(counterId => {
+            const counterName = counterNames.get(counterId) || 'Contatore';
+            const entriesCount = counterEntriesByCounter.get(counterId) || 0;
+            const isExpanded = expandedCounter === counterId;
+            
+            return (
+              <div key={counterId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div 
+                  className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => toggleExpandCounter(counterId)}
+                >
+                  <div>
+                    <p className="font-medium">{counterName}</p>
+                    <p className="text-sm text-gray-500">{entriesCount} {entriesCount === 1 ? 'registrazione' : 'registrazioni'}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="p-1">
+                    {isExpanded ? (
+                      <ChevronUp className="h-5 w-5" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+                
+                {isExpanded && (
+                  <div className="border-t">
+                    <CounterHistory counterId={counterId} counterName={counterName} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

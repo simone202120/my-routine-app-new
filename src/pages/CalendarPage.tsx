@@ -1,4 +1,4 @@
-// pages/CalendarPage.tsx
+// pages/CalendarPage.tsx - Corretto per gestire date undefined
 import React, { useState } from 'react';
 import { 
   format, 
@@ -16,7 +16,7 @@ import {
   isWithinInterval
 } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from "../components/ui/button";
 import TaskItem from '../components/tasks/TaskItem';
 import CounterItem from '../components/counters/CounterItem';
@@ -30,7 +30,8 @@ const CalendarPage = () => {
     deleteTask,
     deleteRoutineOccurrence,
     incrementCounter,
-    decrementCounter
+    decrementCounter,
+    deleteCounter
   } = useApp();
   
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -75,14 +76,22 @@ const CalendarPage = () => {
     if (counter.type !== 'daily') return false;
     
     // Controlla se la data selezionata è nel range di validità del contatore
-    const startDate = parseISO(counter.startDate);
-    const endDate = counter.endDate ? parseISO(counter.endDate) : null;
+    // Aggiunto controllo per startDate undefined
+    if (!counter.startDate) return false;
     
-    if (endDate) {
-      return isWithinInterval(selectedDate, { start: startDate, end: endDate });
-    } else {
-      // Se non c'è una data di fine, controlla solo se è dopo la data di inizio
-      return selectedDate >= startDate;
+    try {
+      const startDate = parseISO(counter.startDate);
+      
+      if (counter.endDate) {
+        const endDate = parseISO(counter.endDate);
+        return isWithinInterval(selectedDate, { start: startDate, end: endDate });
+      } else {
+        // Se non c'è una data di fine, controlla solo se è dopo la data di inizio
+        return selectedDate >= startDate;
+      }
+    } catch (error) {
+      console.error("Errore nel parsing delle date:", error);
+      return false;
     }
   }).map(counter => {
     // Per i giorni futuri o passati, modifica il valore del contatore a 0
@@ -119,10 +128,17 @@ const CalendarPage = () => {
     return counters.some(counter => {
       if (counter.type !== 'daily') return false;
       
-      const isAfterStart = counter.startDate ? dateStr >= counter.startDate : true;
-      const isBeforeEnd = counter.endDate ? dateStr <= counter.endDate : true;
+      // Aggiunto controllo per startDate undefined
+      if (!counter.startDate) return false;
       
-      return isAfterStart && isBeforeEnd;
+      try {
+        const isAfterStart = dateStr >= counter.startDate;
+        const isBeforeEnd = counter.endDate ? dateStr <= counter.endDate : true;
+        
+        return isAfterStart && isBeforeEnd;
+      } catch (error) {
+        return false;
+      }
     });
   };
 
@@ -248,56 +264,30 @@ const CalendarPage = () => {
           </div>
         )}
         
-        {/* Sezione dei contatori giornalieri */}
+                  {/* Sezione dei contatori giornalieri */}
         {selectedDateCounters.length > 0 && (
           <div>
             <h3 className="text-md font-medium text-gray-700 mb-3">Contatori Giornalieri</h3>
             <div className="space-y-3">
               {selectedDateCounters.map(counter => (
-                <div 
+                <CounterItem
                   key={counter.id}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
-                >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{counter.name}</h3>
-                      <p className="text-sm text-gray-500">
-                        Contatore Giornaliero
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-full h-8 w-8"
-                        onClick={() => decrementCounter(counter.id)}
-                        disabled={!isSelectedDateToday}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-12 text-center font-bold text-lg">
-                        {counter.displayValue}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-full h-8 w-8"
-                        onClick={() => incrementCounter(counter.id)}
-                        disabled={!isSelectedDateToday}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {!isSelectedDateToday && (
-                    <p className="text-xs text-amber-600 mt-2">
-                      {selectedDate > new Date() 
-                        ? "I contatori per i giorni futuri partiranno da zero" 
-                        : "I contatori possono essere modificati solo per la data odierna"}
-                    </p>
-                  )}
-                </div>
+                  counter={{
+                    ...counter,
+                    currentValue: counter.displayValue
+                  }}
+                  onIncrement={incrementCounter}
+                  onDecrement={decrementCounter}
+                  onDelete={deleteCounter}
+                />
               ))}
+              {!isSelectedDateToday && (
+                <p className="text-xs text-amber-600 mt-2 p-2 bg-amber-50 rounded-lg">
+                  {selectedDate > new Date() 
+                    ? "I contatori per i giorni futuri partiranno da zero" 
+                    : "I contatori possono essere modificati solo per la data odierna"}
+                </p>
+              )}
             </div>
           </div>
         )}

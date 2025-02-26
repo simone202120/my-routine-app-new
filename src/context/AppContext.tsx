@@ -1,4 +1,4 @@
-// src/context/AppContext.tsx
+// src/context/AppContext.tsx - Aggiornato con gestione cronologia contatori
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { 
   collection, 
@@ -13,13 +13,15 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
-import { Task, Counter, TaskType, CounterType } from '../types';
-import { format } from 'date-fns';
+import { Task, Counter, TaskType, CounterType, CounterEntry } from '../types';
+import { format, isToday } from 'date-fns';
 import NotificationService from '../services/NotificationService';
+import { CounterEntriesService } from '../services/CounterEntriesService';
 
 interface AppContextType {
   tasks: Task[];
   counters: Counter[];
+  counterEntries: CounterEntry[];
   isLoading: boolean;
   addTask: (task: Omit<Task, 'id' | 'isCompleted'>) => Promise<void>;
   toggleTaskComplete: (taskId: string) => Promise<void>;
@@ -31,6 +33,7 @@ interface AppContextType {
   resetDailyCounters: () => Promise<void>;
   resetAllData: () => Promise<void>;
   deleteRoutineOccurrence: (taskId: string, date: string) => Promise<void>;
+  getCounterHistory: (counterId: string) => Promise<CounterEntry[]>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -46,6 +49,7 @@ export const useApp = () => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [counters, setCounters] = useState<Counter[]>([]);
+  const [counterEntries, setCounterEntries] = useState<CounterEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { currentUser } = useAuth();
   
@@ -57,6 +61,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) {
       setTasks([]);
       setCounters([]);
+      setCounterEntries([]);
       setIsLoading(false);
       return;
     }
@@ -92,8 +97,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...doc.data()
       } as Counter));
       setCounters(countersData);
-      setIsLoading(false);
     });
+    
+    // Recupera le voci storiche dei contatori
+    const fetchCounterEntries = async () => {
+      try {
+        const entries = await CounterEntriesService.getAllCounterEntries(currentUser.uid);
+        setCounterEntries(entries);
+      } catch (error) {
+        console.error("Errore nel recuperare le voci storiche dei contatori:", error);
+      }
+    };
+    
+    fetchCounterEntries();
 
     // Check if daily counters need to be reset
     const checkAndResetCounters = async () => {
@@ -101,12 +117,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         query(collection(db, 'userSettings'), where('userId', '==', currentUser.uid))
       );
       
+      const today = new Date().toDateString();
+      
       if (!lastResetDoc.empty) {
         const userSettings = lastResetDoc.docs[0].data();
         const lastReset = userSettings.lastCounterReset;
-        const today = new Date().toDateString();
         
         if (lastReset !== today) {
+          // Prima salvare i valori dei contatori giornalieri
+          await saveCounterEntries();
+          // Poi resettare i contatori
           await resetDailyCounters();
           await updateDoc(lastResetDoc.docs[0].ref, { lastCounterReset: today });
         }
@@ -114,12 +134,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Create settings document if it doesn't exist
         await addDoc(collection(db, 'userSettings'), {
           userId: currentUser.uid,
-          lastCounterReset: new Date().toDateString()
+          lastCounterReset: today
         });
       }
     };
     
     checkAndResetCounters();
+    
+    // Imposta un timer per verificare il reset dei contatori alla mezzanotte
+    const setMidnightCheck = () => {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      
+      const timeToMidnight = midnight.getTime() - now.getTime();
+      
+      setTimeout(() => {
+        checkAndResetCounters();
+        setMidnightCheck(); // Reimpostazione per il giorno successivo
+      }, timeToMidnight);
+    };
+    
+    setMidnightCheck();
     
     // Richiedi permesso per le notifiche
     const requestNotificationPermission = async () => {
@@ -127,6 +163,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     
     requestNotificationPermission();
+    
+    setIsLoading(false);
     
     return () => {
       unsubscribeTasks();
@@ -245,6 +283,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await deleteDoc(counterRef);
   };
 
+  const saveCounterEntries = async () => {
+    if (!currentUser) return;
+    
+    // Usa il servizio per salvare i valori attuali dei contatori
+    await CounterEntriesService.saveCounterEntries(counters, currentUser.uid);
+  };
+
   const resetDailyCounters = async () => {
     if (!currentUser) return;
   
@@ -260,6 +305,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const counterRef = doc(db, 'counters', counter.id);
       await updateDoc(counterRef, { currentValue: 0 });
     }
+    
+    // Ricarica le voci storiche dopo il reset
+    const entries = await CounterEntriesService.getAllCounterEntries(currentUser.uid);
+    setCounterEntries(entries);
   };
 
   const resetAllData = async () => {
@@ -278,30 +327,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await deleteDoc(doc(db, 'counters', counter.id));
     }
   };
-
-  const saveCounterEntries = async () => {
-    if (!currentUser) return;
   
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const dailyCounters = counters.filter(
-      (counter) =>
-        counter.type === 'daily' &&
-        counter.startDate <= today &&
-        (!counter.endDate || counter.endDate >= today)
-    );
-  
-    for (const counter of dailyCounters) {
-      await addDoc(collection(db, 'counterEntries'), {
-        counterId: counter.id,
-        date: today,
-        value: counter.currentValue,
-      });
-    }
+  const getCounterHistory = async (counterId: string): Promise<CounterEntry[]> => {
+    if (!currentUser) return [];
+    
+    return await CounterEntriesService.getCounterEntriesById(counterId, currentUser.uid);
   };
 
   const value = {
     tasks,
     counters,
+    counterEntries,
     isLoading,
     addTask,
     toggleTaskComplete,
@@ -312,7 +348,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteCounter,
     resetDailyCounters,
     resetAllData,
-    deleteRoutineOccurrence
+    deleteRoutineOccurrence,
+    getCounterHistory
   };
 
   return (

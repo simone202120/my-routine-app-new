@@ -1,6 +1,6 @@
 // Tipi per gli impegni
+// Tipi per gli impegni
 export type TaskType = 'routine' | 'oneTime';
-
 
 export interface Task {
   id: string;
@@ -31,11 +31,15 @@ export interface Counter {
   duration: 'day' | 'custom';
 }
 
+// Voci storiche per i contatori
 export interface CounterEntry {
   id: string;
   counterId: string;
+  userId: string;
   date: string;
   value: number;
+  name?: string;
+  timestamp?: any; // Timestamp di Firestore
 }
 // types/index.ts
 export interface Task {

@@ -20,7 +20,8 @@ const HomePage = () => {
     deleteRoutineOccurrence,
     addCounter,
     incrementCounter,
-    decrementCounter
+    decrementCounter,
+    deleteCounter
   } = useApp();
 
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
@@ -139,6 +140,7 @@ const HomePage = () => {
                 counter={counter}
                 onIncrement={incrementCounter}
                 onDecrement={decrementCounter}
+                onDelete={deleteCounter}
               />
             ))}
           {counters.filter(c => c.type === 'daily').length === 0 && (
@@ -165,6 +167,7 @@ const HomePage = () => {
                 counter={counter}
                 onIncrement={incrementCounter}
                 onDecrement={decrementCounter}
+                onDelete={deleteCounter}
               />
             ))}
           {counters.filter(c => c.type === 'total').length === 0 && (
