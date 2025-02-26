@@ -1,5 +1,6 @@
-// src/services/NotificationService.ts
+// src/services/NotificationService.ts - Aggiornato con supporto ricorrenze
 import { Task } from '../types';
+import { addDays, format, isAfter, isBefore, parseISO } from 'date-fns';
 
 class NotificationService {
   private static instance: NotificationService;
@@ -96,40 +97,29 @@ class NotificationService {
    * Pianifica notifiche per un task ricorrente
    */
   private scheduleRoutineNotifications(task: Task): void {
-    if (!task.time || !task.weekdays || task.weekdays.length === 0) return;
+    if (!task.time) return;
     
     const now = new Date();
-    const today = now.getDay(); // 0 = Domenica, 1 = Lunedì, ...
-    const daysMap: {[key: string]: number} = {
-      'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6, 'sun': 0
-    };
     
-    // Trova il prossimo giorno in cui il task è programmato
-    let daysToAdd = 7; // Valore di default (una settimana)
+    // Calcola la prossima occorrenza in base al tipo di ricorrenza
+    let nextOccurrence: Date | null = null;
     
-    task.weekdays.forEach(weekday => {
-      const weekdayNum = daysMap[weekday];
-      let daysUntilNextOccurrence = (weekdayNum - today + 7) % 7;
-      if (daysUntilNextOccurrence === 0) {
-        // Oggi è il giorno programmato, verifica l'ora
-        const [hours, minutes] = task.time!.split(':').map(Number);
-        const taskTimeToday = new Date();
-        taskTimeToday.setHours(hours, minutes, 0);
-        
-        // Se l'ora è già passata, considera la prossima settimana
-        if (taskTimeToday <= now) {
-          daysUntilNextOccurrence = 7;
-        }
-      }
-      
-      if (daysUntilNextOccurrence < daysToAdd) {
-        daysToAdd = daysUntilNextOccurrence;
-      }
-    });
+    if (task.recurrenceType === 'custom' && task.recurrenceInterval) {
+      // Ricorrenza personalizzata in base a un intervallo di giorni
+      nextOccurrence = this.getNextCustomOccurrence(task);
+    } else if (task.recurrenceType === 'biweekly') {
+      // Ricorrenza bisettimanale
+      nextOccurrence = this.getNextBiweeklyOccurrence(task);
+    } else if (task.recurrenceType === 'monthly') {
+      // Ricorrenza mensile
+      nextOccurrence = this.getNextMonthlyOccurrence(task);
+    } else {
+      // Ricorrenza settimanale standard (default)
+      nextOccurrence = this.getNextWeekdayOccurrence(task);
+    }
     
-    // Calcola la data/ora esatta della prossima occorrenza
-    const nextOccurrence = new Date();
-    nextOccurrence.setDate(nextOccurrence.getDate() + daysToAdd);
+    // Se non c'è una prossima occorrenza valida, esci
+    if (!nextOccurrence) return;
     
     // Imposta l'ora
     const [hours, minutes] = task.time.split(':').map(Number);
@@ -148,6 +138,211 @@ class NotificationService {
       
       this.timers.set(`${task.id}_${nextOccurrence.toISOString()}`, timerId);
     }
+  }
+  
+  /**
+   * Trova la prossima occorrenza per un task ricorrente con intervallo personalizzato
+   */
+  private getNextCustomOccurrence(task: Task): Date | null {
+    if (!task.startDate || !task.recurrenceInterval) {
+      return null;
+    }
+    
+    const now = new Date();
+    let startDate = parseISO(task.startDate);
+    
+    // Se siamo dopo la data di fine, non ci sono più occorrenze
+    if (task.endDate && isAfter(now, parseISO(task.endDate))) {
+      return null;
+    }
+    
+    // Calcola quanti giorni sono passati dalla data di inizio
+    const diffInDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Calcola quante ricorrenze complete sono già passate
+    const completedRecurrences = Math.floor(diffInDays / task.recurrenceInterval);
+    
+    // Calcola la data della prossima ricorrenza
+    const nextOccurrence = addDays(startDate, (completedRecurrences + 1) * task.recurrenceInterval);
+    
+    // Verifica che la prossima ricorrenza sia entro la data di fine (se specificata)
+    if (task.endDate && isAfter(nextOccurrence, parseISO(task.endDate))) {
+      return null;
+    }
+    
+    // Verifica che questa data non sia esclusa
+    const nextOccurrenceStr = format(nextOccurrence, 'yyyy-MM-dd');
+    if (task.excludedDates?.includes(nextOccurrenceStr)) {
+      // Se la data è esclusa, prova con la successiva
+      const tempTask = {
+        ...task,
+        startDate: format(addDays(nextOccurrence, 1), 'yyyy-MM-dd')
+      };
+      return this.getNextCustomOccurrence(tempTask);
+    }
+    
+    return nextOccurrence;
+  }
+  
+  /**
+   * Trova la prossima occorrenza bisettimanale
+   */
+  private getNextBiweeklyOccurrence(task: Task): Date | null {
+    if (!task.weekdays || task.weekdays.length === 0 || !task.startDate) {
+      return null;
+    }
+    
+    const now = new Date();
+    const startDate = parseISO(task.startDate);
+    
+    // Se siamo prima della data di inizio o dopo la data di fine, non ci sono occorrenze
+    if ((startDate && isBefore(now, startDate)) || 
+        (task.endDate && isAfter(now, parseISO(task.endDate)))) {
+      return null;
+    }
+    
+    // Calcola in quale settimana dell'intervallo bisettimanale siamo
+    const diffInDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const weekInCycle = Math.floor(diffInDays / 7) % 2; // 0 per la prima settimana, 1 per la seconda
+    
+    // Se siamo nella settimana "off" del ciclo, aggiungiamo abbastanza giorni per arrivare alla prossima settimana "on"
+    let daysToAdd = 0;
+    if (weekInCycle === 1) {
+      // Siamo nella seconda settimana, aggiungi i giorni per arrivare alla prossima settimana "on"
+      daysToAdd = 7;
+    }
+    
+    // Calcola il prossimo giorno nella settimana corrente o nella prossima settimana "on"
+    const nextOccurrence = this.getNextWeekdayFromToday(task, daysToAdd);
+    
+    return nextOccurrence;
+  }
+  
+  /**
+   * Trova la prossima occorrenza mensile
+   */
+  private getNextMonthlyOccurrence(task: Task): Date | null {
+    // Implementazione semplificata per ricorrenza mensile
+    // Qui si potrebbe implementare una logica più complessa per le ricorrenze mensili
+    // Ad esempio, "il primo lunedì del mese" o "il 15° giorno del mese"
+    
+    // Per ora, assumiamo che sia "lo stesso giorno del mese"
+    if (!task.startDate) {
+      return null;
+    }
+    
+    const now = new Date();
+    const startDate = parseISO(task.startDate);
+    
+    // Se siamo dopo la data di fine, non ci sono più occorrenze
+    if (task.endDate && isAfter(now, parseISO(task.endDate))) {
+      return null;
+    }
+    
+    // Ottieni il giorno del mese dalla data di inizio
+    const dayOfMonth = startDate.getDate();
+    
+    // Crea una data per il prossimo mese con lo stesso giorno
+    let nextOccurrence = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
+    
+    // Se questo giorno è già passato questo mese, spostati al mese prossimo
+    if (nextOccurrence <= now) {
+      nextOccurrence = new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth);
+    }
+    
+    // Verifica che la prossima ricorrenza sia entro la data di fine (se specificata)
+    if (task.endDate && isAfter(nextOccurrence, parseISO(task.endDate))) {
+      return null;
+    }
+    
+    return nextOccurrence;
+  }
+  
+  /**
+   * Trova la prossima occorrenza in base ai giorni della settimana
+   */
+  private getNextWeekdayOccurrence(task: Task): Date | null {
+    if (!task.weekdays || task.weekdays.length === 0) {
+      return null;
+    }
+    
+    const now = new Date();
+    
+    // Data di inizio e fine
+    const startDate = task.startDate ? parseISO(task.startDate) : null;
+    const endDate = task.endDate ? parseISO(task.endDate) : null;
+    
+    // Se siamo prima della data di inizio o dopo la data di fine, non ci sono occorrenze
+    if ((startDate && isBefore(now, startDate)) || 
+        (endDate && isAfter(now, endDate))) {
+      return null;
+    }
+    
+    return this.getNextWeekdayFromToday(task, 0);
+  }
+  
+  /**
+   * Trova il prossimo giorno della settimana a partire da oggi + daysOffset
+   */
+  private getNextWeekdayFromToday(task: Task, daysOffset: number): Date | null {
+    if (!task.weekdays || task.weekdays.length === 0) {
+      return null;
+    }
+    
+    const now = new Date();
+    const baseDate = addDays(now, daysOffset);
+    const today = baseDate.getDay(); // 0 = Domenica, 1 = Lunedì, ...
+    
+    const daysMap: {[key: string]: number} = {
+      'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6, 'sun': 0
+    };
+    
+    let daysToAdd = 7; // Default a una settimana
+    let foundValidDay = false;
+    
+    // Trova il prossimo giorno della settimana
+    task.weekdays.forEach(weekday => {
+      const weekdayNum = daysMap[weekday];
+      let daysUntilNextOccurrence = (weekdayNum - today + 7) % 7;
+      
+      // Se oggi è il giorno programmato, verificare l'ora
+      if (daysUntilNextOccurrence === 0 && task.time) {
+        const [hours, minutes] = task.time.split(':').map(Number);
+        const taskTimeToday = new Date(baseDate);
+        taskTimeToday.setHours(hours, minutes, 0);
+        
+        // Se l'ora è già passata, considera la prossima settimana
+        if (taskTimeToday <= new Date()) {
+          daysUntilNextOccurrence = 7;
+        }
+      }
+      
+      if (daysUntilNextOccurrence < daysToAdd) {
+        daysToAdd = daysUntilNextOccurrence;
+        foundValidDay = true;
+      }
+    });
+    
+    if (!foundValidDay) {
+      return null;
+    }
+    
+    // Calcola la data/ora esatta della prossima occorrenza
+    const nextOccurrence = addDays(baseDate, daysToAdd);
+    
+    // Verifica che questa data non sia esclusa
+    const nextOccurrenceStr = format(nextOccurrence, 'yyyy-MM-dd');
+    if (task.excludedDates?.includes(nextOccurrenceStr)) {
+      // Se la data è esclusa, prova con la successiva
+      return this.getNextWeekdayFromToday(task, daysOffset + daysToAdd + 1);
+    }
+    
+    // Verifica che sia entro la data di fine (se specificata)
+    if (task.endDate && isAfter(nextOccurrence, parseISO(task.endDate))) {
+      return null;
+    }
+    
+    return nextOccurrence;
   }
 
   /**

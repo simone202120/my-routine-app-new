@@ -189,8 +189,8 @@ const HomePage = () => {
       {isTaskFormOpen && (
         <TaskForm
           onClose={() => setIsTaskFormOpen(false)}
-          onSubmit={(taskData) => {
-            addTask(taskData);
+          onSubmit={async (taskData) => {
+            await addTask(taskData);
             setIsTaskFormOpen(false);
           }}
         />

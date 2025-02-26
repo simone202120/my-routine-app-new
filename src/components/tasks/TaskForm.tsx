@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { Button } from "../ui/button";
-import { TaskType } from '../../types';
+import { TaskType, RecurrenceType } from '../../types';
 import { addWeeks, addMonths, addYears, format } from 'date-fns';
 import NotificationService from '../../services/NotificationService';
 
@@ -19,13 +19,20 @@ const WEEKDAYS = [
 const DURATION_TYPES = [
   { id: 'custom', label: 'Personalizzata' },
   { id: 'oneWeek', label: '1 Settimana' },
-  { id: 'twoWeek', label: '2 Settimana' },
-  { id: 'threeWeek', label: '3 Settimana' },
+  { id: 'twoWeek', label: '2 Settimane' },
+  { id: 'threeWeek', label: '3 Settimane' },
   { id: 'oneMonth', label: '1 Mese' },
-  { id: 'twoMonth', label: '2 Mese' },
+  { id: 'twoMonth', label: '2 Mesi' },
   { id: 'threeMonths', label: '3 Mesi' },
   { id: 'sixMonths', label: '6 Mesi' },
   { id: 'oneYear', label: '1 Anno' }
+];
+
+const RECURRENCE_TYPES = [
+  { value: 'weekly', label: 'Ogni settimana' },
+  { value: 'biweekly', label: 'Ogni 2 settimane' },
+  { value: 'monthly', label: 'Ogni mese' },
+  { value: 'custom', label: 'Personalizzata' }
 ];
 
 interface TaskFormProps {
@@ -40,6 +47,8 @@ interface TaskFormProps {
     startDate?: string;
     endDate?: string;
     notifyBefore?: boolean;
+    recurrenceType?: RecurrenceType;
+    recurrenceInterval?: number;
   }) => void;
 }
 
@@ -54,7 +63,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: '',
     durationType: 'custom',
-    notifyBefore: false
+    notifyBefore: false,
+    recurrenceType: 'weekly' as RecurrenceType,
+    recurrenceInterval: 1
   });
   
   const [notificationsAvailable, setNotificationsAvailable] = useState(false);
@@ -123,6 +134,27 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     }));
   };
 
+  const handleRecurrenceTypeChange = (recurrenceType: RecurrenceType) => {
+    setTaskData(prev => {
+      // Imposta intervalli di default per i tipi di ricorrenza preimpostati
+      let recurrenceInterval = prev.recurrenceInterval;
+      
+      if (recurrenceType === 'weekly') {
+        recurrenceInterval = 1;
+      } else if (recurrenceType === 'biweekly') {
+        recurrenceInterval = 2;
+      } else if (recurrenceType === 'monthly') {
+        recurrenceInterval = 1;
+      }
+      
+      return {
+        ...prev,
+        recurrenceType,
+        recurrenceInterval
+      };
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -135,7 +167,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
       weekdays: taskData.type === 'routine' ? taskData.weekdays : [], 
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
       endDate: taskData.type === 'routine' ? taskData.endDate : undefined,
-      notifyBefore: taskData.notifyBefore
+      notifyBefore: taskData.notifyBefore,
+      recurrenceType: taskData.type === 'routine' ? taskData.recurrenceType : undefined,
+      recurrenceInterval: taskData.type === 'routine' && taskData.recurrenceType === 'custom' 
+        ? taskData.recurrenceInterval 
+        : undefined
     };
     
     // Aggiungi descrizione solo se non è vuota
@@ -145,6 +181,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     
     onSubmit(task);
   };
+
+  // Determina se ci sono giorni della settimana selezionati
+  const hasSelectedWeekdays = taskData.weekdays.length > 0;
+
+  // Determina se mostrare la sezione cadenza
+  const showRecurrenceSection = taskData.type === 'routine';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -214,6 +256,47 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                     onChange={(e) => setTaskData({...taskData, time: e.target.value})}
                   />
                 </div>
+                
+                {/* Sezione Cadenza */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cadenza
+                  </label>
+                  <select
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 mb-2"
+                    value={taskData.recurrenceType}
+                    onChange={(e) => handleRecurrenceTypeChange(e.target.value as RecurrenceType)}
+                  >
+                    {RECURRENCE_TYPES.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {taskData.recurrenceType === 'custom' && (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <label className="whitespace-nowrap text-sm text-gray-700">
+                        Ogni
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        className="w-16 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                        value={taskData.recurrenceInterval}
+                        onChange={(e) => setTaskData({
+                          ...taskData, 
+                          recurrenceInterval: parseInt(e.target.value) || 1
+                        })}
+                      />
+                      <label className="flex-1 text-sm text-gray-700">
+                        giorni
+                      </label>
+                    </div>
+                  )}
+                </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Giorni
