@@ -1,4 +1,4 @@
-// src/types/index.ts - Aggiorna i tipi per supportare nuove opzioni di ricorrenza
+// src/types/index.ts - Aggiunto supporto per notifiche personalizzate
 // Aggiungi o modifica queste definizioni nel file
 
 // Tipi per gli impegni
@@ -9,6 +9,9 @@ export type RecurrenceType = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 
 // Tipi di unità di tempo per ricorrenze personalizzate
 export type TimeUnit = 'days' | 'weeks' | 'months';
+
+// Tipi di unità di tempo per le notifiche
+export type NotificationTimeUnit = 'minutes' | 'hours';
 
 // Estendi l'interfaccia Task se necessario
 export interface Task {
@@ -25,10 +28,13 @@ export interface Task {
   frequency?: string;
   excludedDates?: string[];
   notifyBefore?: boolean;
+  notifyInAdvance?: number; // Quanti minuti/ore prima dell'evento
+  notifyTimeUnit?: NotificationTimeUnit; // 'minutes' o 'hours'
   recurrenceType?: RecurrenceType;
   recurrenceInterval?: number;
-  recurrenceUnit?: TimeUnit; // Nuova proprietà per l'interfaccia locale del form
+  recurrenceUnit?: TimeUnit; // Proprietà per l'interfaccia locale del form
 }
+
 // Tipi per i contatori
 export type CounterType = 'daily' | 'total';
 

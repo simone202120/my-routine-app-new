@@ -1,5 +1,5 @@
-// src/services/NotificationService.ts - Aggiornato con supporto ricorrenze
-import { Task } from '../types';
+// src/services/NotificationService.ts - Aggiornato con supporto per anticipo personalizzato
+import { Task, NotificationTimeUnit } from '../types';
 import { addDays, format, isAfter, isBefore, parseISO } from 'date-fns';
 
 class NotificationService {
@@ -73,13 +73,32 @@ class NotificationService {
   }
 
   /**
+   * Calcola il tempo di anticipo per la notifica in millisecondi
+   */
+  private getNotificationAdvanceTime(task: Task): number {
+    const defaultAdvanceMinutes = 10; // Valore di default: 10 minuti prima
+    
+    if (!task.notifyInAdvance || task.notifyInAdvance <= 0) {
+      return defaultAdvanceMinutes * 60 * 1000; // Default: 10 minuti in millisecondi
+    }
+    
+    if (task.notifyTimeUnit === 'hours') {
+      return task.notifyInAdvance * 60 * 60 * 1000; // Ore in millisecondi
+    }
+    
+    // Altrimenti, assume che sia in minuti
+    return task.notifyInAdvance * 60 * 1000; // Minuti in millisecondi
+  }
+
+  /**
    * Pianifica una notifica per un task una tantum
    */
   private scheduleOneTimeNotification(task: Task): void {
     if (!task.date || !task.time) return;
     
     const taskDateTime = new Date(`${task.date}T${task.time}`);
-    const notificationTime = new Date(taskDateTime.getTime() - 10 * 60 * 1000); // 10 minuti prima
+    const advanceTime = this.getNotificationAdvanceTime(task);
+    const notificationTime = new Date(taskDateTime.getTime() - advanceTime);
     
     const now = new Date();
     if (notificationTime <= now) return; // Non programmare notifiche nel passato
@@ -125,8 +144,9 @@ class NotificationService {
     const [hours, minutes] = task.time.split(':').map(Number);
     nextOccurrence.setHours(hours, minutes, 0, 0);
     
-    // Calcola il tempo per la notifica (10 minuti prima)
-    const notificationTime = new Date(nextOccurrence.getTime() - 10 * 60 * 1000);
+    // Calcola il tempo di anticipo personalizzato
+    const advanceTime = this.getNotificationAdvanceTime(task);
+    const notificationTime = new Date(nextOccurrence.getTime() - advanceTime);
     const timeToNotification = notificationTime.getTime() - now.getTime();
     
     if (timeToNotification > 0) {
@@ -352,8 +372,31 @@ class NotificationService {
     if (!this.notificationsEnabled) return;
     
     const title = "Promemoria Impegno";
+    
+    // Crea il messaggio appropriato in base al tempo di anticipo
+    let messageText = task.title;
+    
+    if (task.notifyInAdvance && task.notifyInAdvance > 0) {
+      if (task.notifyTimeUnit === 'hours') {
+        if (task.notifyInAdvance === 1) {
+          messageText = `Tra 1 ora: ${task.title}`;
+        } else {
+          messageText = `Tra ${task.notifyInAdvance} ore: ${task.title}`;
+        }
+      } else {
+        if (task.notifyInAdvance === 1) {
+          messageText = `Tra 1 minuto: ${task.title}`;
+        } else {
+          messageText = `Tra ${task.notifyInAdvance} minuti: ${task.title}`;
+        }
+      }
+    } else {
+      // Default: 10 minuti
+      messageText = `Tra 10 minuti: ${task.title}`;
+    }
+    
     const options = {
-      body: `Tra 10 minuti: ${task.title}`,
+      body: messageText,
       icon: '/logo192.png',
     };
     

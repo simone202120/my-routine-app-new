@@ -1,9 +1,9 @@
-// src/pages/CreateTaskPage.tsx
+// src/pages/CreateTaskPage.tsx - Aggiornato con notifiche personalizzate
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Bell, BellOff, ArrowLeft } from 'lucide-react';
 import { Button } from "../components/ui/button";
-import { TaskType, RecurrenceType, TimeUnit } from '../types';
+import { TaskType, RecurrenceType, TimeUnit, NotificationTimeUnit } from '../types';
 import { addWeeks, addMonths, addYears, format } from 'date-fns';
 import NotificationService from '../services/NotificationService';
 import { useApp } from '../context/AppContext';
@@ -47,6 +47,24 @@ const TIME_UNITS = [
   { value: 'months', label: 'mesi' }
 ];
 
+// Opzioni per l'anticipo della notifica
+const NOTIFICATION_TIME_OPTIONS = [
+  { value: 5, label: '5 minuti prima' },
+  { value: 10, label: '10 minuti prima' },
+  { value: 15, label: '15 minuti prima' },
+  { value: 30, label: '30 minuti prima' },
+  { value: 60, label: '1 ora prima' },
+  { value: 120, label: '2 ore prima' },
+  { value: 1440, label: '1 giorno prima' },
+  { value: -1, label: 'Personalizzato' }
+];
+
+// Unità di tempo per le notifiche personalizzate
+const NOTIFICATION_TIME_UNITS = [
+  { value: 'minutes', label: 'minuti' },
+  { value: 'hours', label: 'ore' }
+];
+
 const CreateTaskPage = () => {
   const navigate = useNavigate();
   const { addTask } = useApp();
@@ -71,12 +89,17 @@ const CreateTaskPage = () => {
     endDate: '',
     durationType: 'custom',
     notifyBefore: false,
+    notifyOption: 10, // Default: 10 minuti prima
+    notifyInAdvance: 10, // Valore effettivo in minuti o ore
+    notifyTimeUnit: 'minutes' as NotificationTimeUnit,
+    customNotifyTime: '', // Per input personalizzato
     recurrenceType: 'weekly' as RecurrenceType,
     recurrenceInterval: 1,
     recurrenceUnit: 'days' as TimeUnit
   });
   
   const [notificationsAvailable, setNotificationsAvailable] = useState(false);
+  const [showCustomNotifyTime, setShowCustomNotifyTime] = useState(false);
   
   useEffect(() => {
     const checkNotificationPermission = async () => {
@@ -142,6 +165,54 @@ const CreateTaskPage = () => {
     }));
   };
 
+  const handleNotificationOptionChange = (option: number) => {
+    if (option === -1) {
+      // L'utente ha selezionato l'opzione personalizzata
+      setShowCustomNotifyTime(true);
+      setTaskData(prev => ({
+        ...prev,
+        notifyOption: option
+      }));
+      return;
+    }
+    
+    setShowCustomNotifyTime(false);
+    
+    // Gestisci le opzioni predefinite
+    let timeValue = option;
+    let timeUnit: NotificationTimeUnit = 'minutes';
+    
+    // Converti ore in minuti per l'interfaccia utente
+    if (option >= 60) {
+      if (option % 60 === 0) {
+        timeValue = option / 60;
+        timeUnit = 'hours';
+      }
+    }
+    
+    setTaskData(prev => ({
+      ...prev,
+      notifyOption: option,
+      notifyInAdvance: timeValue,
+      notifyTimeUnit: timeUnit
+    }));
+  };
+
+  const handleCustomNotifyTimeChange = (value: string) => {
+    setTaskData(prev => ({
+      ...prev,
+      customNotifyTime: value,
+      notifyInAdvance: parseInt(value) || prev.notifyInAdvance
+    }));
+  };
+  
+  const handleNotifyTimeUnitChange = (unit: NotificationTimeUnit) => {
+    setTaskData(prev => ({
+      ...prev,
+      notifyTimeUnit: unit
+    }));
+  };
+
   const handleRecurrenceTypeChange = (recurrenceType: RecurrenceType) => {
     setTaskData(prev => {
       let recurrenceInterval = prev.recurrenceInterval;
@@ -193,6 +264,8 @@ const CreateTaskPage = () => {
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
       endDate: taskData.type === 'routine' ? taskData.endDate : undefined,
       notifyBefore: taskData.notifyBefore,
+      notifyInAdvance: taskData.notifyBefore ? taskData.notifyInAdvance : undefined,
+      notifyTimeUnit: taskData.notifyBefore ? taskData.notifyTimeUnit : undefined,
       recurrenceType: taskData.type === 'routine' ? taskData.recurrenceType : undefined,
       recurrenceInterval: taskData.type === 'routine' && taskData.recurrenceType === 'custom' 
         ? intervalInDays 
@@ -213,6 +286,18 @@ const CreateTaskPage = () => {
     (taskData.weekdays.length === 0 || 
     !taskData.startDate || 
     (taskData.durationType === 'custom' && !taskData.endDate));
+
+  // Formatta l'etichetta per il tempo di notifica
+  const formatNotificationTimeLabel = () => {
+    if (!taskData.notifyBefore) return "";
+    
+    if (taskData.notifyOption === -1) {
+      return "Personalizzato";
+    }
+    
+    const option = NOTIFICATION_TIME_OPTIONS.find(opt => opt.value === taskData.notifyOption);
+    return option ? option.label : "";
+  };
 
   return (
     <PageTransition>
@@ -434,23 +519,73 @@ const CreateTaskPage = () => {
               
               {/* Opzione per le notifiche */}
               {notificationsAvailable && (
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-800">Notifica</p>
-                    <p className="text-sm text-gray-500">Ricevi un avviso 10 minuti prima</p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-800">Notifica</p>
+                      <p className="text-sm text-gray-500">
+                        {taskData.notifyBefore 
+                          ? formatNotificationTimeLabel() 
+                          : "Notifiche disattivate"}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={taskData.notifyBefore ? "default" : "outline"}
+                      className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+                      onClick={toggleNotification}
+                    >
+                      {taskData.notifyBefore ? (
+                        <Bell className="h-5 w-5" />
+                      ) : (
+                        <BellOff className="h-5 w-5" />
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant={taskData.notifyBefore ? "default" : "outline"}
-                    className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
-                    onClick={toggleNotification}
-                  >
-                    {taskData.notifyBefore ? (
-                      <Bell className="h-5 w-5" />
-                    ) : (
-                      <BellOff className="h-5 w-5" />
-                    )}
-                  </Button>
+                  
+                  {taskData.notifyBefore && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Notifica in anticipo
+                      </label>
+                      <select
+                        className="w-full mb-2 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                        value={taskData.notifyOption}
+                        onChange={(e) => handleNotificationOptionChange(parseInt(e.target.value))}
+                      >
+                        {NOTIFICATION_TIME_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      {showCustomNotifyTime && (
+                        <div className="flex items-center space-x-2 mt-2">
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Tempo"
+                            className="w-20 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            value={taskData.customNotifyTime}
+                            onChange={(e) => handleCustomNotifyTimeChange(e.target.value)}
+                          />
+                          <select
+                            className="rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            value={taskData.notifyTimeUnit}
+                            onChange={(e) => handleNotifyTimeUnitChange(e.target.value as NotificationTimeUnit)}
+                          >
+                            {NOTIFICATION_TIME_UNITS.map(unit => (
+                              <option key={unit.value} value={unit.value}>
+                                {unit.label}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-sm text-gray-500">prima</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               

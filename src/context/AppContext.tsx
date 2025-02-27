@@ -1,4 +1,4 @@
-// src/context/AppContext.tsx - Aggiornato con gestione cronologia contatori
+// src/context/AppContext.tsx - Fix per il reset dei contatori giornalieri
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { 
   collection, 
@@ -9,12 +9,13 @@ import {
   getDocs, 
   query, 
   where,
-  onSnapshot
+  onSnapshot,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { Task, Counter, TaskType, CounterType, CounterEntry } from '../types';
-import { format, isToday } from 'date-fns';
+import { format, isToday, startOfDay } from 'date-fns';
 import NotificationService from '../services/NotificationService';
 import { CounterEntriesService } from '../services/CounterEntriesService';
 
@@ -55,6 +56,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   // Inizializza il servizio di notifiche
   const notificationService = NotificationService.getInstance();
+
+  // Salva i contatori giornalieri attuali nel database
+  const saveCounterEntries = async () => {
+    if (!currentUser) return;
+    
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    // Filtra solo i contatori giornalieri attivi
+    const dailyCounters = counters.filter(
+      counter => counter.type === 'daily' &&
+      counter.startDate <= today &&
+      (!counter.endDate || counter.endDate >= today)
+    );
+    
+    // Salva il valore corrente di ogni contatore come voce storica
+    for (const counter of dailyCounters) {
+      try {
+        await addDoc(collection(db, 'counterEntries'), {
+          counterId: counter.id,
+          userId: currentUser.uid,
+          date: today,
+          value: counter.currentValue,
+          name: counter.name,
+          timestamp: Timestamp.now()
+        });
+      } catch (error) {
+        console.error(`Errore nel salvare la voce storica per il contatore ${counter.id}:`, error);
+      }
+    }
+    
+    // Aggiorna lo stato locale con le nuove voci
+    const updatedEntries = await CounterEntriesService.getAllCounterEntries(currentUser.uid);
+    setCounterEntries(updatedEntries);
+  };
+
+  // Reset dei contatori giornalieri a zero
+  const resetDailyCounters = async () => {
+    if (!currentUser) return;
+  
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    // Seleziona solo i contatori giornalieri attivi
+    const dailyCounters = counters.filter(
+      counter => counter.type === 'daily' &&
+      counter.startDate <= today &&
+      (!counter.endDate || counter.endDate >= today)
+    );
+  
+    // Azzera ogni contatore
+    for (const counter of dailyCounters) {
+      const counterRef = doc(db, 'counters', counter.id);
+      await updateDoc(counterRef, { currentValue: 0 });
+    }
+  };
 
   // Fetch user data from Firestore
   useEffect(() => {
@@ -113,11 +168,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Check if daily counters need to be reset
     const checkAndResetCounters = async () => {
+      // Recupera le impostazioni utente per sapere quando è stato fatto l'ultimo reset
       const lastResetDoc = await getDocs(
         query(collection(db, 'userSettings'), where('userId', '==', currentUser.uid))
       );
       
-      const today = new Date().toDateString();
+      const today = format(startOfDay(new Date()), 'yyyy-MM-dd');
       
       if (!lastResetDoc.empty) {
         const userSettings = lastResetDoc.docs[0].data();
@@ -129,6 +185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Poi resettare i contatori
           await resetDailyCounters();
           await updateDoc(lastResetDoc.docs[0].ref, { lastCounterReset: today });
+          console.log(`Reset completato: contatori salvati e azzerati per il giorno ${today}`);
         }
       } else {
         // Create settings document if it doesn't exist
@@ -149,7 +206,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       const timeToMidnight = midnight.getTime() - now.getTime();
       
+      console.log(`Prossimo reset programmato tra ${Math.floor(timeToMidnight / 60000)} minuti`);
+      
       setTimeout(() => {
+        console.log("È mezzanotte: controllo se i contatori devono essere resettati");
         checkAndResetCounters();
         setMidnightCheck(); // Reimpostazione per il giorno successivo
       }, timeToMidnight);
@@ -281,34 +341,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     const counterRef = doc(db, 'counters', counterId);
     await deleteDoc(counterRef);
-  };
-
-  const saveCounterEntries = async () => {
-    if (!currentUser) return;
-    
-    // Usa il servizio per salvare i valori attuali dei contatori
-    await CounterEntriesService.saveCounterEntries(counters, currentUser.uid);
-  };
-
-  const resetDailyCounters = async () => {
-    if (!currentUser) return;
-  
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const dailyCounters = counters.filter(
-      (counter) =>
-        counter.type === 'daily' &&
-        counter.startDate <= today &&
-        (!counter.endDate || counter.endDate >= today)
-    );
-  
-    for (const counter of dailyCounters) {
-      const counterRef = doc(db, 'counters', counter.id);
-      await updateDoc(counterRef, { currentValue: 0 });
-    }
-    
-    // Ricarica le voci storiche dopo il reset
-    const entries = await CounterEntriesService.getAllCounterEntries(currentUser.uid);
-    setCounterEntries(entries);
   };
 
   const resetAllData = async () => {
