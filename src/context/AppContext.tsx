@@ -1,4 +1,4 @@
-// src/context/AppContext.tsx - Fix per il reset dei contatori giornalieri
+// src/context/AppContext.tsx - Aggiornato per supportare il completamento di singole occorrenze
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { 
   collection, 
@@ -10,7 +10,9 @@ import {
   query, 
   where,
   onSnapshot,
-  Timestamp
+  Timestamp,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -24,8 +26,8 @@ interface AppContextType {
   counters: Counter[];
   counterEntries: CounterEntry[];
   isLoading: boolean;
-  addTask: (task: Omit<Task, 'id' | 'isCompleted'>) => Promise<void>;
-  toggleTaskComplete: (taskId: string) => Promise<void>;
+  addTask: (task: Omit<Task, 'id' | 'isCompleted' | 'completedDates'>) => Promise<void>;
+  toggleTaskComplete: (taskId: string, specificDate?: string) => Promise<void>;
   addCounter: (counter: Omit<Counter, 'id' | 'currentValue'>) => Promise<void>;
   incrementCounter: (counterId: string) => Promise<void>;
   decrementCounter: (counterId: string) => Promise<void>;
@@ -233,7 +235,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [currentUser]);
 
-  const addTask = async (taskData: Omit<Task, 'id' | 'isCompleted'>) => {
+  const addTask = async (taskData: Omit<Task, 'id' | 'isCompleted' | 'completedDates'>) => {
     if (!currentUser) return;
     
     // Crea una copia dei dati e rimuovi tutti i campi undefined
@@ -248,7 +250,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     const newTask = {
       ...cleanedData,
-      isCompleted: false,
+      isCompleted: false, // Mantenuto per compatibilità
+      completedDates: [], // Inizializza l'array delle date completate
       userId: currentUser.uid,
       createdAt: new Date()
     };
@@ -256,22 +259,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await addDoc(collection(db, 'tasks'), newTask);
   };
 
-  const toggleTaskComplete = async (taskId: string) => {
+  const toggleTaskComplete = async (taskId: string, specificDate?: string) => {
     if (!currentUser) return;
     
     const taskToToggle = tasks.find(task => task.id === taskId);
     if (!taskToToggle) return;
     
     const taskRef = doc(db, 'tasks', taskId);
-    const newIsCompleted = !taskToToggle.isCompleted;
     
-    await updateDoc(taskRef, {
-      isCompleted: newIsCompleted
-    });
-    
-    // Se il task è stato completato, cancella le sue notifiche
-    if (newIsCompleted && taskToToggle.notifyBefore) {
-      notificationService.clearTaskNotification(taskId);
+    // Gestione diversa in base al tipo di task
+    if (taskToToggle.type === 'oneTime') {
+      // Per eventi una tantum, usa semplicemente il flag isCompleted come prima
+      const newIsCompleted = !taskToToggle.isCompleted;
+      
+      await updateDoc(taskRef, {
+        isCompleted: newIsCompleted
+      });
+      
+      // Se il task è stato completato, cancella le sue notifiche
+      if (newIsCompleted && taskToToggle.notifyBefore) {
+        notificationService.clearTaskNotification(taskId);
+      }
+    } 
+    else if (taskToToggle.type === 'routine' && specificDate) {
+      // Per le routine, gestisci il completamento per la data specifica
+      const completedDates = taskToToggle.completedDates || [];
+      
+      // Verifica se questa data è già stata marcata come completata
+      const isAlreadyCompleted = completedDates.includes(specificDate);
+      
+      if (isAlreadyCompleted) {
+        // Rimuovi la data dall'elenco delle date completate
+        await updateDoc(taskRef, {
+          completedDates: arrayRemove(specificDate)
+        });
+      } else {
+        // Aggiungi la data all'elenco delle date completate
+        await updateDoc(taskRef, {
+          completedDates: arrayUnion(specificDate)
+        });
+      }
     }
   };
 
@@ -295,7 +322,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     const taskRef = doc(db, 'tasks', taskId);
     await updateDoc(taskRef, {
-      excludedDates: [...excludedDates, date]
+      excludedDates: arrayUnion(date)
     });
   };
 

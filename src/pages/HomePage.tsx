@@ -8,7 +8,7 @@ import CounterItem from '../components/counters/CounterItem';
 import { useApp } from '../context/AppContext';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { isTaskScheduledForDate } from '../utils/TaskUtils'; // Importa la nuova utility
+import { isTaskScheduledForDate, isTaskCompletedForDate } from '../utils/TaskUtils';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ const HomePage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
   const currentDate = new Date();
 
-  // Modificata la logica di filtraggio per utilizzare la nuova utility
+  // Modificata la logica di filtraggio per utilizzare l'utility
   const todayTasks = tasks.filter(task => {
     if (task.type === 'oneTime') {
       return task.date === today;
@@ -37,7 +37,14 @@ const HomePage = () => {
     return false;
   });
 
-  const completedTodayTasks = todayTasks.filter(task => task.isCompleted);
+  // Aggiornato per usare isTaskCompletedForDate
+  const completedTodayTasks = todayTasks.filter(task => {
+    if (task.type === 'oneTime') {
+      return task.isCompleted;
+    }
+    return isTaskCompletedForDate(task, today);
+  });
+  
   const completionPercentage = todayTasks.length > 0 
     ? Math.round((completedTodayTasks.length / todayTasks.length) * 100) 
     : 0;

@@ -1,4 +1,4 @@
-// src/types/index.ts - Aggiunto supporto per notifiche personalizzate
+// src/types/index.ts - Aggiunto supporto per il completamento di singole occorrenze
 // Aggiungi o modifica queste definizioni nel file
 
 // Tipi per gli impegni
@@ -22,11 +22,13 @@ export interface Task {
   date?: string;
   time?: string;
   weekdays?: string[];
+  monthDay?: number; // Giorno del mese (1-31)
   startDate?: string;
   endDate?: string;
-  isCompleted: boolean;
+  isCompleted: boolean; // Mantenuto per compatibilità con eventi una tantum
+  completedDates?: string[]; // NUOVO: Array di date (formato yyyy-MM-dd) in cui il task è stato completato
   frequency?: string;
-  excludedDates?: string[];
+  excludedDates?: string[]; // Date in cui il task è stato escluso
   notifyBefore?: boolean;
   notifyInAdvance?: number; // Quanti minuti/ore prima dell'evento
   notifyTimeUnit?: NotificationTimeUnit; // 'minutes' o 'hours'

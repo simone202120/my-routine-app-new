@@ -1,10 +1,10 @@
-// src/pages/CreateTaskPage.tsx - Aggiornato con notifiche personalizzate
+// src/pages/CreateTaskPage.tsx - Con stile coerente
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Bell, BellOff, ArrowLeft } from 'lucide-react';
 import { Button } from "../components/ui/button";
 import { TaskType, RecurrenceType, TimeUnit, NotificationTimeUnit } from '../types';
-import { addWeeks, addMonths, addYears, format } from 'date-fns';
+import { addWeeks, addMonths, addYears, format, getDate } from 'date-fns';
 import NotificationService from '../services/NotificationService';
 import { useApp } from '../context/AppContext';
 import { PageTransition } from '../components/common/AnimatedComponents';
@@ -19,6 +19,12 @@ const WEEKDAYS = [
   { id: 'sat', label: 'Sab' },
   { id: 'sun', label: 'Dom' }
 ];
+
+// Generare un array di numeri da 1 a 31 per selezione del giorno del mese
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => ({ 
+  id: (i + 1).toString(), 
+  label: (i + 1).toString() 
+}));
 
 const DURATION_TYPES = [
   { id: 'custom', label: 'Personalizzata' },
@@ -85,6 +91,7 @@ const CreateTaskPage = () => {
     time: '',
     date: '',
     weekdays: [] as string[],
+    monthDay: getDate(new Date()), // Giorno corrente del mese
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: '',
     durationType: 'custom',
@@ -100,6 +107,18 @@ const CreateTaskPage = () => {
   
   const [notificationsAvailable, setNotificationsAvailable] = useState(false);
   const [showCustomNotifyTime, setShowCustomNotifyTime] = useState(false);
+  
+  // Quando si seleziona una data d'inizio, imposta anche il giorno del mese
+  useEffect(() => {
+    if (taskData.startDate) {
+      const startDateObj = new Date(taskData.startDate);
+      const dayOfMonth = getDate(startDateObj);
+      setTaskData(prev => ({
+        ...prev,
+        monthDay: dayOfMonth
+      }));
+    }
+  }, [taskData.startDate]);
   
   useEffect(() => {
     const checkNotificationPermission = async () => {
@@ -117,6 +136,13 @@ const CreateTaskPage = () => {
       weekdays: prev.weekdays.includes(dayId)
         ? prev.weekdays.filter(d => d !== dayId)
         : [...prev.weekdays, dayId]
+    }));
+  };
+
+  const handleMonthDayChange = (day: number) => {
+    setTaskData(prev => ({
+      ...prev,
+      monthDay: day
     }));
   };
 
@@ -255,12 +281,11 @@ const CreateTaskPage = () => {
     }
     
     // Prepara l'oggetto task da inviare
-    const task = {
+    const task: any = {
       title: taskData.title,
       type: taskData.type,
       time: taskData.time,
       date: taskData.type === 'oneTime' ? taskData.date : undefined,
-      weekdays: taskData.type === 'routine' ? taskData.weekdays : [], 
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
       endDate: taskData.type === 'routine' ? taskData.endDate : undefined,
       notifyBefore: taskData.notifyBefore,
@@ -272,20 +297,32 @@ const CreateTaskPage = () => {
         : undefined
     };
     
+    // Aggiungi weekdays solo per ricorrenze settimanali o bisettimanali
+    if (taskData.type === 'routine' && 
+        (taskData.recurrenceType === 'weekly' || taskData.recurrenceType === 'biweekly')) {
+      task.weekdays = taskData.weekdays;
+    }
+    
+    // Aggiungi monthDay solo per ricorrenze mensili
+    if (taskData.type === 'routine' && taskData.recurrenceType === 'monthly') {
+      task.monthDay = taskData.monthDay;
+    }
+    
     // Aggiungi descrizione solo se non è vuota
     if (taskData.description.trim()) {
-      Object.assign(task, { description: taskData.description });
+      task.description = taskData.description;
     }
     
     await addTask(task);
     navigate(-1); // Torna alla pagina precedente
   };
-
-  // Determina se il pulsante di salvataggio dovrebbe essere disabilitato
-  const isSaveDisabled = taskData.type === 'routine' && 
-    (taskData.weekdays.length === 0 || 
-    !taskData.startDate || 
-    (taskData.durationType === 'custom' && !taskData.endDate));
+  
+  // Determina se è richiesta la selezione di giorni della settimana
+  const needsWeekdaySelection = taskData.type === 'routine' && 
+    (taskData.recurrenceType === 'weekly' || taskData.recurrenceType === 'biweekly');
+  
+  // Determina se è richiesta la selezione del giorno del mese
+  const needsMonthDaySelection = taskData.type === 'routine' && taskData.recurrenceType === 'monthly';
 
   // Formatta l'etichetta per il tempo di notifica
   const formatNotificationTimeLabel = () => {
@@ -297,6 +334,19 @@ const CreateTaskPage = () => {
     
     const option = NOTIFICATION_TIME_OPTIONS.find(opt => opt.value === taskData.notifyOption);
     return option ? option.label : "";
+  };
+
+  // Determina se il pulsante di salvataggio deve essere disabilitato
+  const isSaveDisabled = () => {
+    if (taskData.type !== 'routine') return false;
+    
+    if (!taskData.startDate) return true;
+    if (taskData.durationType === 'custom' && !taskData.endDate) return true;
+    
+    // Per ricorrenze settimanali o bisettimanali, verifica che almeno un giorno della settimana sia selezionato
+    if (needsWeekdaySelection && taskData.weekdays.length === 0) return true;
+    
+    return false;
   };
 
   return (
@@ -429,27 +479,50 @@ const CreateTaskPage = () => {
                     )}
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Giorni
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {WEEKDAYS.map(day => (
-                        <button
-                          key={day.id}
-                          type="button"
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                            taskData.weekdays.includes(day.id)
-                              ? 'bg-primary-100 border border-primary-500 text-primary-700'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
-                          onClick={() => toggleWeekday(day.id)}
-                        >
-                          {day.label}
-                        </button>
-                      ))}
+                  {/* Giorni della settimana (solo per ricorrenze settimanali o bisettimanali) */}
+                  {needsWeekdaySelection && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Giorni della settimana
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {WEEKDAYS.map(day => (
+                          <button
+                            key={day.id}
+                            type="button"
+                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                              taskData.weekdays.includes(day.id)
+                                ? 'bg-primary-100 border border-primary-500 text-primary-700'
+                                : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
+                            onClick={() => toggleWeekday(day.id)}
+                          >
+                            {day.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  
+                  {/* Giorno del mese (solo per ricorrenze mensili) */}
+                  {needsMonthDaySelection && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Giorno del mese
+                      </label>
+                      <select
+                        className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                        value={taskData.monthDay}
+                        onChange={(e) => handleMonthDayChange(parseInt(e.target.value))}
+                      >
+                        {MONTH_DAYS.map(day => (
+                          <option key={day.id} value={day.id}>
+                            {day.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -613,7 +686,7 @@ const CreateTaskPage = () => {
               type="submit"
               form="taskForm"
               className="px-6 py-2 h-12 text-base"
-              disabled={isSaveDisabled}
+              disabled={isSaveDisabled()}
             >
               Salva
             </Button>

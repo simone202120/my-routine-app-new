@@ -1,9 +1,9 @@
-// components/tasks/TaskForm.tsx - Aggiornato con notifiche personalizzate
+// components/tasks/TaskForm.tsx - Con supporto migliorato per ricorrenza mensile
 import React, { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { Button } from "../ui/button";
 import { TaskType, RecurrenceType, NotificationTimeUnit } from '../../types';
-import { addWeeks, addMonths, addYears, format } from 'date-fns';
+import { addWeeks, addMonths, addYears, format, getDate } from 'date-fns';
 import NotificationService from '../../services/NotificationService';
 
 const WEEKDAYS = [
@@ -15,6 +15,12 @@ const WEEKDAYS = [
   { id: 'sat', label: 'Sab' },
   { id: 'sun', label: 'Dom' }
 ];
+
+// Generare un array di numeri da 1 a 31 per selezione del giorno del mese
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => ({ 
+  id: (i + 1).toString(), 
+  label: (i + 1).toString() 
+}));
 
 const DURATION_TYPES = [
   { id: 'custom', label: 'Personalizzata' },
@@ -62,6 +68,7 @@ interface TaskFormProps {
     time?: string;
     date?: string;
     weekdays?: string[];
+    monthDay?: number;
     startDate?: string;
     endDate?: string;
     notifyBefore?: boolean;
@@ -80,6 +87,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     time: '',
     date: '',
     weekdays: [] as string[],
+    monthDay: getDate(new Date()), // Giorno corrente del mese
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: '',
     durationType: 'custom',
@@ -105,12 +113,31 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     checkNotificationPermission();
   }, []);
 
+  // Quando si seleziona una data d'inizio, imposta anche il giorno del mese
+  useEffect(() => {
+    if (taskData.startDate) {
+      const startDateObj = new Date(taskData.startDate);
+      const dayOfMonth = getDate(startDateObj);
+      setTaskData(prev => ({
+        ...prev,
+        monthDay: dayOfMonth
+      }));
+    }
+  }, [taskData.startDate]);
+
   const toggleWeekday = (dayId: string) => {
     setTaskData(prev => ({
       ...prev,
       weekdays: prev.weekdays.includes(dayId)
         ? prev.weekdays.filter(d => d !== dayId)
         : [...prev.weekdays, dayId]
+    }));
+  };
+
+  const handleMonthDayChange = (day: number) => {
+    setTaskData(prev => ({
+      ...prev,
+      monthDay: day
     }));
   };
 
@@ -228,12 +255,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     e.preventDefault();
     
     // Prepara l'oggetto task da inviare
-    const task = {
+    const task: any = {
       title: taskData.title,
       type: taskData.type,
       time: taskData.time,
       date: taskData.type === 'oneTime' ? taskData.date : undefined,
-      weekdays: taskData.type === 'routine' ? taskData.weekdays : [], 
       startDate: taskData.type === 'routine' ? taskData.startDate : undefined,
       endDate: taskData.type === 'routine' ? taskData.endDate : undefined,
       notifyBefore: taskData.notifyBefore,
@@ -245,9 +271,20 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
         : undefined
     };
     
+    // Aggiungi weekdays solo per ricorrenze settimanali o bisettimanali
+    if (taskData.type === 'routine' && 
+        (taskData.recurrenceType === 'weekly' || taskData.recurrenceType === 'biweekly')) {
+      task.weekdays = taskData.weekdays;
+    }
+    
+    // Aggiungi monthDay solo per ricorrenze mensili
+    if (taskData.type === 'routine' && taskData.recurrenceType === 'monthly') {
+      task.monthDay = taskData.monthDay;
+    }
+    
     // Aggiungi descrizione solo se non è vuota
     if (taskData.description.trim()) {
-      Object.assign(task, { description: taskData.description });
+      task.description = taskData.description;
     }
     
     onSubmit(task);
@@ -258,6 +295,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
 
   // Determina se mostrare la sezione cadenza
   const showRecurrenceSection = taskData.type === 'routine';
+  
+  // Determina se è richiesta la selezione di giorni della settimana
+  const needsWeekdaySelection = taskData.type === 'routine' && 
+    (taskData.recurrenceType === 'weekly' || taskData.recurrenceType === 'biweekly');
+  
+  // Determina se è richiesta la selezione del giorno del mese
+  const needsMonthDaySelection = taskData.type === 'routine' && taskData.recurrenceType === 'monthly';
 
   // Formatta l'etichetta per il tempo di notifica
   const formatNotificationTimeLabel = () => {
@@ -271,49 +315,62 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
     return option ? option.label : "";
   };
 
+  // Determina se il pulsante di salvataggio deve essere disabilitato
+  const isSaveDisabled = () => {
+    if (taskData.type !== 'routine') return false;
+    
+    if (!taskData.startDate) return true;
+    if (taskData.durationType === 'custom' && !taskData.endDate) return true;
+    
+    // Per ricorrenze settimanali o bisettimanali, verifica che almeno un giorno della settimana sia selezionato
+    if (needsWeekdaySelection && taskData.weekdays.length === 0) return true;
+    
+    return false;
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-lg font-bold text-gray-900">Nuovo Impegno</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-5 border-b">
+          <h2 className="text-xl font-bold text-gray-900">Nuovo Impegno</h2>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
             <X className="h-5 w-5" />
           </Button>
         </div>
         
-        <div className="overflow-y-auto flex-1 p-4">
-          <form id="taskForm" onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="overflow-y-auto flex-1 p-6">
+          <form id="taskForm" onSubmit={handleSubmit} className="space-y-6">
+            <div className="form-group">
+              <label className="form-label">
                 Titolo
               </label>
               <input
                 type="text"
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="form-input"
                 value={taskData.title}
                 onChange={(e) => setTaskData({...taskData, title: e.target.value})}
                 required
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="form-group">
+              <label className="form-label">
                 Descrizione (opzionale)
               </label>
               <textarea
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="form-textarea"
                 value={taskData.description}
                 onChange={(e) => setTaskData({...taskData, description: e.target.value})}
-                rows={2}
+                rows={3}
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="form-group">
+              <label className="form-label">
                 Tipo
               </label>
               <select
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="form-select"
                 value={taskData.type}
                 onChange={(e) => setTaskData({
                   ...taskData, 
@@ -328,25 +385,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
 
             {taskData.type === 'routine' ? (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="form-group">
+                  <label className="form-label">
                     Orario
                   </label>
                   <input
                     type="time"
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="form-input"
                     value={taskData.time}
                     onChange={(e) => setTaskData({...taskData, time: e.target.value})}
                   />
                 </div>
                 
                 {/* Sezione Cadenza */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="form-group">
+                  <label className="form-label">
                     Cadenza
                   </label>
                   <select
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 mb-2"
+                    className="form-select mb-3"
                     value={taskData.recurrenceType}
                     onChange={(e) => handleRecurrenceTypeChange(e.target.value as RecurrenceType)}
                   >
@@ -358,7 +415,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                   </select>
                   
                   {taskData.recurrenceType === 'custom' && (
-                    <div className="flex items-center space-x-2 mb-2">
+                    <div className="flex items-center space-x-3 mb-2 mt-4">
                       <label className="whitespace-nowrap text-sm text-gray-700">
                         Ogni
                       </label>
@@ -366,7 +423,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                         type="number"
                         min="1"
                         max="365"
-                        className="w-16 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                        className="w-20 py-3 px-4 rounded-lg border-gray-300 shadow-sm"
                         value={taskData.recurrenceInterval}
                         onChange={(e) => setTaskData({
                           ...taskData, 
@@ -380,46 +437,69 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                   )}
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Giorni
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAYS.map(day => (
-                      <button
-                        key={day.id}
-                        type="button"
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                          taskData.weekdays.includes(day.id)
-                            ? 'bg-primary-100 border-primary-500 text-primary-700'
-                            : 'border border-gray-300 hover:bg-gray-50'
-                        }`}
-                        onClick={() => toggleWeekday(day.id)}
-                      >
-                        {day.label}
-                      </button>
-                    ))}
+                {/* Giorni della settimana (solo per ricorrenze settimanali o bisettimanali) */}
+                {needsWeekdaySelection && (
+                  <div className="form-group">
+                    <label className="form-label">
+                      Giorni della settimana
+                    </label>
+                    <div className="options-group">
+                      {WEEKDAYS.map(day => (
+                        <button
+                          key={day.id}
+                          type="button"
+                          className={`option-button px-4 py-3 ${
+                            taskData.weekdays.includes(day.id)
+                              ? 'bg-primary-100 border-primary-500 text-primary-700'
+                              : 'border border-gray-300 hover:bg-gray-50'
+                          }`}
+                          onClick={() => toggleWeekday(day.id)}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                {/* Giorno del mese (solo per ricorrenze mensili) */}
+                {needsMonthDaySelection && (
+                  <div className="form-group">
+                    <label className="form-label">
+                      Giorno del mese
+                    </label>
+                    <select
+                      className="form-select"
+                      value={taskData.monthDay}
+                      onChange={(e) => handleMonthDayChange(parseInt(e.target.value))}
+                    >
+                      {MONTH_DAYS.map(day => (
+                        <option key={day.id} value={day.id}>
+                          {day.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                <div className="form-group">
+                  <label className="form-label">
                     Data Inizio
                   </label>
                   <input
                     type="date"
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="form-input"
                     value={taskData.startDate}
                     onChange={(e) => setTaskData({...taskData, startDate: e.target.value})}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="form-group">
+                  <label className="form-label">
                     Durata
                   </label>
                   <select
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 mb-2"
+                    className="form-select mb-3"
                     value={taskData.durationType}
                     onChange={(e) => handleDurationTypeChange(e.target.value)}
                   >
@@ -433,7 +513,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                   {taskData.durationType === 'custom' && (
                     <input
                       type="date"
-                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      className="form-input mt-3"
                       value={taskData.endDate}
                       min={taskData.startDate}
                       onChange={(e) => setTaskData({...taskData, endDate: e.target.value})}
@@ -443,24 +523,24 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
               </>
             ) : (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="form-group">
+                  <label className="form-label">
                     Data
                   </label>
                   <input
                     type="date"
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="form-input"
                     value={taskData.date}
                     onChange={(e) => setTaskData({...taskData, date: e.target.value})}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="form-group">
+                  <label className="form-label">
                     Orario
                   </label>
                   <input
                     type="time"
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="form-input"
                     value={taskData.time}
                     onChange={(e) => setTaskData({...taskData, time: e.target.value})}
                   />
@@ -470,11 +550,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
             
             {/* Opzione per le notifiche */}
             {notificationsAvailable && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-2 py-3 bg-gray-50 rounded-lg">
+              <div className="space-y-4">
+                <div className="notification-option">
                   <div>
                     <p className="font-medium text-gray-800">Notifica</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 mt-1">
                       {taskData.notifyBefore 
                         ? formatNotificationTimeLabel() 
                         : "Notifiche disattivate"}
@@ -483,24 +563,24 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                   <Button
                     type="button"
                     variant={taskData.notifyBefore ? "default" : "outline"}
-                    className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+                    className="rounded-full h-12 w-12 p-0 flex items-center justify-center"
                     onClick={toggleNotification}
                   >
                     {taskData.notifyBefore ? (
-                      <Bell className="h-5 w-5" />
+                      <Bell className="h-6 w-6" />
                     ) : (
-                      <BellOff className="h-5 w-5" />
+                      <BellOff className="h-6 w-6" />
                     )}
                   </Button>
                 </div>
                 
                 {taskData.notifyBefore && (
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="form-section">
+                    <label className="form-label">
                       Notifica in anticipo
                     </label>
                     <select
-                      className="w-full mb-2 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      className="form-select mb-3"
                       value={taskData.notifyOption}
                       onChange={(e) => handleNotificationOptionChange(parseInt(e.target.value))}
                     >
@@ -512,17 +592,17 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
                     </select>
                     
                     {showCustomNotifyTime && (
-                      <div className="flex items-center space-x-2 mt-2">
+                      <div className="flex items-center space-x-3 mt-3">
                         <input
                           type="number"
                           min="1"
                           placeholder="Tempo"
-                          className="w-20 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                          className="w-24 py-3 px-4 rounded-lg border-gray-300 shadow-sm"
                           value={taskData.customNotifyTime}
                           onChange={(e) => handleCustomNotifyTimeChange(e.target.value)}
                         />
                         <select
-                          className="rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                          className="form-select"
                           value={taskData.notifyTimeUnit}
                           onChange={(e) => handleNotifyTimeUnitChange(e.target.value as NotificationTimeUnit)}
                         >
@@ -542,27 +622,28 @@ const TaskForm: React.FC<TaskFormProps> = ({ onClose, onSubmit }) => {
             
             {/* Messaggio di notifica disabilitata */}
             {!notificationsAvailable && taskData.time && (
-              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+              <div className="text-sm text-amber-600 bg-amber-50 p-4 rounded-lg">
                 Per ricevere notifiche per questo impegno, abilita i permessi per le notifiche nel tuo browser.
               </div>
             )}
           </form>
         </div>
 
-        <div className="border-t p-4 bg-gray-50 rounded-b-xl">
-          <div className="flex justify-end space-x-3">
-            <Button variant="outline" type="button" onClick={onClose}>
+        <div className="border-t p-5 bg-gray-50 rounded-b-xl">
+          <div className="flex justify-end space-x-4">
+            <Button 
+              variant="outline" 
+              type="button" 
+              onClick={onClose}
+              className="px-6 py-3 text-base"
+            >
               Annulla
             </Button>
             <Button 
               type="submit"
               form="taskForm"
-              disabled={
-                taskData.type === 'routine' && 
-                (taskData.weekdays.length === 0 || 
-                !taskData.startDate || 
-                (taskData.durationType === 'custom' && !taskData.endDate))
-              }
+              className="px-6 py-3 text-base"
+              disabled={isSaveDisabled()}
             >
               Salva
             </Button>

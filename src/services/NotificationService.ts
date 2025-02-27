@@ -1,6 +1,6 @@
-// src/services/NotificationService.ts - Aggiornato con supporto per anticipo personalizzato
+// src/services/NotificationService.ts - Versione completa con supporto per ricorrenza mensile
 import { Task, NotificationTimeUnit } from '../types';
-import { addDays, format, isAfter, isBefore, parseISO } from 'date-fns';
+import { addDays, format, isAfter, isBefore, parseISO, getDate } from 'date-fns';
 
 class NotificationService {
   private static instance: NotificationService;
@@ -242,11 +242,7 @@ class NotificationService {
    * Trova la prossima occorrenza mensile
    */
   private getNextMonthlyOccurrence(task: Task): Date | null {
-    // Implementazione semplificata per ricorrenza mensile
-    // Qui si potrebbe implementare una logica più complessa per le ricorrenze mensili
-    // Ad esempio, "il primo lunedì del mese" o "il 15° giorno del mese"
-    
-    // Per ora, assumiamo che sia "lo stesso giorno del mese"
+    // Verifica parametri necessari
     if (!task.startDate) {
       return null;
     }
@@ -259,10 +255,12 @@ class NotificationService {
       return null;
     }
     
-    // Ottieni il giorno del mese dalla data di inizio
-    const dayOfMonth = startDate.getDate();
+    // Determina il giorno del mese da usare
+    // Se è specificato monthDay, usa quello
+    // Altrimenti usa il giorno del mese dalla data di inizio
+    const dayOfMonth = task.monthDay || startDate.getDate();
     
-    // Crea una data per il prossimo mese con lo stesso giorno
+    // Crea una data per il mese corrente con il giorno specificato
     let nextOccurrence = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
     
     // Se questo giorno è già passato questo mese, spostati al mese prossimo
@@ -270,9 +268,33 @@ class NotificationService {
       nextOccurrence = new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth);
     }
     
+    // Gestisci casi come il 31 in mesi con meno giorni
+    // Se il giorno non esiste nel mese, JS lo riporta al mese successivo
+    // Per esempio, new Date(2023, 1, 31) diventa 3 marzo 2023 perché febbraio ha solo 28 giorni
+    if (nextOccurrence.getDate() !== dayOfMonth) {
+      // Se è successo, torna all'ultimo giorno del mese desiderato
+      nextOccurrence = new Date(nextOccurrence.getFullYear(), nextOccurrence.getMonth(), 0);
+    }
+    
     // Verifica che la prossima ricorrenza sia entro la data di fine (se specificata)
     if (task.endDate && isAfter(nextOccurrence, parseISO(task.endDate))) {
       return null;
+    }
+    
+    // Verifica che questa data non sia esclusa
+    const nextOccurrenceStr = format(nextOccurrence, 'yyyy-MM-dd');
+    if (task.excludedDates?.includes(nextOccurrenceStr)) {
+      // Se la data è esclusa, calcola la ricorrenza del mese successivo
+      const tempNextMonth = new Date(nextOccurrence);
+      tempNextMonth.setMonth(tempNextMonth.getMonth() + 1);
+      
+      // Crea un oggetto task temporaneo con la data iniziale nel mese successivo
+      const tempTask = {
+        ...task,
+        startDate: format(tempNextMonth, 'yyyy-MM-dd')
+      };
+      
+      return this.getNextMonthlyOccurrence(tempTask);
     }
     
     return nextOccurrence;

@@ -1,5 +1,5 @@
-// src/utils/taskUtils.ts - versione aggiornata
-import { format, differenceInDays, differenceInMonths, isLastDayOfMonth } from 'date-fns';
+// src/utils/TaskUtils.tsx - Versione completa con tutte le funzionalità
+import { format, differenceInDays, isLastDayOfMonth, getDate, parseISO } from 'date-fns';
 import { Task } from '../types';
 
 /**
@@ -25,56 +25,125 @@ export function isTaskScheduledForDate(task: Task, date: Date): boolean {
     return false;
   }
 
-  // Verifica se il giorno della settimana è pianificato
-  const dayOfWeek = format(date, 'eee').toLowerCase();
-  const isScheduledWeekday = task.weekdays?.includes(dayOfWeek) ?? false;
-  
-  // Se non è nei giorni pianificati, esci subito
-  if (!isScheduledWeekday) {
-    return false;
-  }
-
-  // Se il giorno della settimana è corretto, verifica la ricorrenza
-  if (!task.startDate) {
-    return true; // Se non c'è data di inizio, mostra sempre nei giorni selezionati
-  }
-
-  const startDate = new Date(task.startDate);
-
-  if (task.recurrenceType === 'weekly' || !task.recurrenceType) {
-    // Se è settimanale o non specificato, mostra sempre nei giorni selezionati
-    return true;
-  } 
-  else if (task.recurrenceType === 'biweekly') {
-    // Calcola quante settimane sono passate dalla data di inizio
-    const diffTime = date.getTime() - startDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const diffWeeks = Math.floor(diffDays / 7);
-    
-    // Mostra solo nelle settimane pari a partire dalla settimana di inizio (0, 2, 4, ...)
-    return diffWeeks % 2 === 0;
-  } 
-  else if (task.recurrenceType === 'monthly') {
-    // Gestione speciale per mesi di lunghezza diversa
-    const startDateDay = startDate.getDate();
-    const dateDay = date.getDate();
-    
-    // Se la data di inizio è l'ultimo giorno del mese, 
-    // consideriamo anche l'ultimo giorno di altri mesi
-    if (isLastDayOfMonth(startDate) && isLastDayOfMonth(date)) {
-      return true;
-    }
-    
-    // Altrimenti verifica che sia lo stesso giorno del mese
-    return dateDay === startDateDay;
-  } 
-  else if (task.recurrenceType === 'custom' && task.recurrenceInterval) {
-    // Per ricorrenze personalizzate
-    const daysDiff = differenceInDays(date, startDate);
-    
-    // Verifica se sono passati multipli esatti dell'intervallo
-    return daysDiff % task.recurrenceInterval === 0;
+  // Gestione in base al tipo di ricorrenza
+  if (task.recurrenceType === 'monthly') {
+    return isMonthlyTaskScheduledForDate(task, date);
+  } else if (task.recurrenceType === 'weekly' || !task.recurrenceType) {
+    return isWeeklyTaskScheduledForDate(task, date);
+  } else if (task.recurrenceType === 'biweekly') {
+    return isBiweeklyTaskScheduledForDate(task, date);
+  } else if (task.recurrenceType === 'custom' && task.recurrenceInterval) {
+    return isCustomTaskScheduledForDate(task, date);
   }
 
   return false;
+}
+
+/**
+ * Verifica se un task è stato completato per una data specifica
+ * @param task Il task da verificare
+ * @param date La data per cui verificare il completamento (oggetto Date o stringa formato yyyy-MM-dd)
+ * @return True se il task è stato completato per la data specificata, false altrimenti
+ */
+export function isTaskCompletedForDate(task: Task, date: Date | string): boolean {
+  // Per task una tantum, usa il flag isCompleted standard
+  if (task.type === 'oneTime') {
+    return task.isCompleted;
+  }
+  
+  // Per le routine, verifica l'array completedDates
+  if (!task.completedDates || task.completedDates.length === 0) {
+    return false; // Nessuna data completata
+  }
+  
+  // Converti la data in formato stringa se necessario
+  const dateStr = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+  
+  // Verifica se la data è nell'elenco delle date completate
+  return task.completedDates.includes(dateStr);
+}
+
+/**
+ * Verifica se un task con ricorrenza settimanale è programmato per una data
+ */
+function isWeeklyTaskScheduledForDate(task: Task, date: Date): boolean {
+  // Verifica se il giorno della settimana è pianificato
+  const dayOfWeek = format(date, 'eee').toLowerCase();
+  return task.weekdays?.includes(dayOfWeek) ?? false;
+}
+
+/**
+ * Verifica se un task con ricorrenza bisettimanale è programmato per una data
+ */
+function isBiweeklyTaskScheduledForDate(task: Task, date: Date): boolean {
+  // Prima controlla se il giorno della settimana è pianificato
+  const dayOfWeek = format(date, 'eee').toLowerCase();
+  if (!task.weekdays?.includes(dayOfWeek)) {
+    return false;
+  }
+
+  // Poi verifica se siamo nella settimana "attiva" del ciclo bisettimanale
+  if (!task.startDate) {
+    return false;
+  }
+
+  const startDate = parseISO(task.startDate);
+  const diffInDays = Math.floor((date.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const weekInCycle = Math.floor(diffInDays / 7) % 2; // 0 per la prima settimana, 1 per la seconda
+
+  // È pianificato solo se siamo nella prima settimana del ciclo (settimana "attiva")
+  return weekInCycle === 0;
+}
+
+/**
+ * Verifica se un task con ricorrenza mensile è programmato per una data
+ */
+function isMonthlyTaskScheduledForDate(task: Task, date: Date): boolean {
+  // Determina il giorno del mese da controllare
+  let targetDayOfMonth;
+  
+  // Se è specificato monthDay, usa quello
+  if (task.monthDay) {
+    targetDayOfMonth = task.monthDay;
+  } 
+  // Altrimenti, utilizza il giorno dal startDate
+  else if (task.startDate) {
+    const startDate = parseISO(task.startDate);
+    targetDayOfMonth = getDate(startDate);
+  } else {
+    return false;
+  }
+  
+  const dayOfMonth = getDate(date);
+  
+  // Gestire caso speciale: l'ultimo giorno del mese
+  if (targetDayOfMonth >= 28) {
+    // Se il target è l'ultimo giorno del mese (o un giorno che non esiste in alcuni mesi)
+    // e la data in questione è l'ultimo giorno del suo mese, considera come corrispondente
+    const isTargetPotentiallyLastDay = targetDayOfMonth >= 28;
+    const isDateLastDayOfMonth = isLastDayOfMonth(date);
+    
+    if (isTargetPotentiallyLastDay && isDateLastDayOfMonth) {
+      // È l'ultimo giorno del mese - corrisponde
+      return true;
+    }
+  }
+  
+  // Corrispondenza semplice del giorno del mese
+  return dayOfMonth === targetDayOfMonth;
+}
+
+/**
+ * Verifica se un task con ricorrenza personalizzata è programmato per una data
+ */
+function isCustomTaskScheduledForDate(task: Task, date: Date): boolean {
+  if (!task.startDate || !task.recurrenceInterval) {
+    return false;
+  }
+  
+  const startDate = parseISO(task.startDate);
+  const diffInDays = Math.floor((date.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // È pianificato solo se il numero di giorni dalla data di inizio è un multiplo esatto dell'intervallo
+  return diffInDays % task.recurrenceInterval === 0;
 }

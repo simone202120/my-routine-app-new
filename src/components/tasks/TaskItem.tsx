@@ -1,13 +1,14 @@
-// components/tasks/TaskItem.tsx
+// components/tasks/TaskItem.tsx - Aggiornato per supportare il completamento di singole occorrenze
 import React, { useState } from 'react';
 import { Check, Clock, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "../ui/button";
 import { Task } from '../../types';
 import DeleteTaskDialog from './DeleteTaskDialog';
+import { isTaskCompletedForDate } from '../../utils/TaskUtils';
 
 interface TaskItemProps {
   task: Task;
-  onComplete: (id: string) => void;
+  onComplete: (id: string, date?: string) => void;
   onDelete: (id: string) => void;
   onDeleteSingleOccurrence: (taskId: string, date: string) => void;
   currentDate: string;
@@ -45,20 +46,35 @@ const TaskItem: React.FC<TaskItemProps> = ({
     setExpanded(!expanded);
   };
 
+  // Determina se il task è completato per la data corrente
+  const isCompleted = task.type === 'oneTime' 
+    ? task.isCompleted 
+    : isTaskCompletedForDate(task, currentDate);
+
   // Verifica se c'è una descrizione e se dovremmo mostrare il pulsante per espanderla
   const hasDescription = task.description && task.description.trim().length > 0;
+
+  const handleComplete = () => {
+    if (task.type === 'routine') {
+      // Per le routine, passa anche la data corrente
+      onComplete(task.id, currentDate);
+    } else {
+      // Per eventi una tantum, mantieni il comportamento esistente
+      onComplete(task.id);
+    }
+  };
 
   return (
     <>
       <div className={`
         bg-white rounded-xl p-4 shadow-sm border border-gray-100
-        ${task.isCompleted ? 'bg-gray-50' : ''}
+        ${isCompleted ? 'bg-gray-50' : ''}
       `}>
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <h3 className={`font-medium ${
-                task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
+                isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
               }`}>
                 {task.title}
               </h3>
@@ -66,8 +82,8 @@ const TaskItem: React.FC<TaskItemProps> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`text-gray-400 ${task.isCompleted ? 'text-primary-500' : 'hover:text-primary-500'} transition-colors`}
-                  onClick={() => onComplete(task.id)}
+                  className={`text-gray-400 ${isCompleted ? 'text-primary-500' : 'hover:text-primary-500'} transition-colors`}
+                  onClick={handleComplete}
                 >
                   <Check className="h-4 w-4" />
                 </Button>
